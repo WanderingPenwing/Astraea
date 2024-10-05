@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::Read;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
+use rand::seq::SliceRandom;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -198,23 +199,39 @@ fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
 
 fn player_rotate(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&Player, &Transform)>,
+    mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
+    sky: Res<Sky>, // Res to access the Sky resource
     mut commands: Commands,
 ) {
-	for (mut player, mut transform) in query.iter_mut() {
-	    if keys.just_pressed(KeyCode::Space) {
-	    	info!("space");
-	        
-	        let target_rotation = Quat::from_euler(EulerRot::YXZ, 0.1, 0.5, 0.2);
-	        
-	        // Store the target rotation in a resource
-	        //player.target_rotation = Some(target_rotation);
-	    }
-	    
-	    // if let Some(target_rotation) = target_rotation {
-     //        // let current_rotation = transform.rotation;
-     //        // transform.rotation = current_rotation.slerp(target_rotation.0, 0.1); 
-     //        info!("rotate");
-	    // }
-	}
+    for (mut player, mut transform) in query.iter_mut() {
+        // If the space key was just pressed
+        if keys.just_pressed(KeyCode::Space) {
+            info!("space pressed");
+
+            // Select a random constellation from the Sky's content
+            if let Some(constellation) = sky.content.choose(&mut rand::thread_rng()) {
+                // Create a target rotation quaternion from the constellation's direction
+                let target_rotation = Quat::from_rotation_arc(Vec3::Z, celestial_to_cartesian(constellation.rah, constellation.dec));
+
+                // Store the target rotation in the player component
+                player.target_rotation = Some(target_rotation);
+            }
+        }
+
+        // If there is a target rotation, smoothly rotate the player towards it
+        if let Some(target_rotation) = player.target_rotation {
+            // Get the current rotation of the player
+            let current_rotation = transform.rotation;
+
+            // Slerp between the current rotation and the target rotation
+            transform.rotation = current_rotation.slerp(target_rotation, 0.1); // 0.1 is the interpolation factor
+
+            info!("rotating player");
+
+            // Optionally, you could clear the target rotation when close enough
+            if transform.rotation.angle_between(target_rotation) < 0.01 {
+                player.target_rotation = None; // Clear once the rotation is close enough
+            }
+        }
+   }
 }
