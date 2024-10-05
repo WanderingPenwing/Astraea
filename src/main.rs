@@ -21,9 +21,10 @@ fn setup(
 ) {
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
+        PbrBundle {//Plane3d::default().mesh().size(1., 1.)
+            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
+            material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
+            transform: Transform::from_xyz(5.0, 0.0, 0.0),
             ..default()
         },
         Star,
@@ -31,13 +32,13 @@ fn setup(
 
     // light
     commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(-1.5)),
         ..default()
     });
 
     // camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(15.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(-1.5)),
         ..default()
     });
 }
