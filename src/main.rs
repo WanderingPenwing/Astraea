@@ -48,6 +48,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
+    commands.insert_resource(ClearColor(Color::BLACK));
 
 	let stars = get_stars().unwrap();
 
@@ -63,22 +64,13 @@ fn setup(
         });
     
 	for star in stars {
-		//info!("{:?}", star);
-
 		let star_pos = star_position(star.clone()) * sky_radius;
-        //info!("{:?}", star_pos);
-
 		let star_mag = star.v.parse::<f32>().unwrap();
-
-		if star_mag < 1.0 {
-			info!("{:?}", star);
-		}
         let mut star_size = star_scale * 2.512f32.powf(-star_mag*0.5);
 
         if star.constellation.is_some() {
         	star_size *= 1.5;
         }
-
         star_size = star_size.min(0.63*star_scale);
         
 		commands.spawn((
@@ -92,23 +84,6 @@ fn setup(
             Star,
      	));
     }
-
-	
-    // commands.spawn((
-    //     PbrBundle {//Plane3d::default().mesh().size(1., 1.)
-    //         mesh: meshes.add(Cuboid::new(star_size, star_size, star_size)),
-    //         material: materials.add(Color::srgb(1.0, 0.0, 0.0)),
-    //         transform: Transform::from_xyz(1.0, 0.0, 0.0),
-    //         ..default()
-    //     },
-    //     Star,
-    // ));
-
-    // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(-1.5)),
-        ..default()
-    });
 
     // camera
     commands.spawn(Camera3dBundle {
@@ -149,13 +124,7 @@ fn star_position(star_data: StarData) -> Vec3 {
     	+ dec_parts[1].parse::<f64>().unwrap() / 60.0
         + dec_parts[2].parse::<f64>().unwrap() / 3600.0;
 
-	// let dec_sign : f64 = if text_dec.starts_with('-') {
-	// 	-1.0
-	// } else {
-	// 	1.0
-	// };
-
-    return celestial_to_cartesian(ra_seconds/3600.0, dec_deg)
+    celestial_to_cartesian(ra_seconds/3600.0, dec_deg)
 }
 
 fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
