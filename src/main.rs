@@ -53,34 +53,38 @@ fn setup(
     let star_size = 0.02;
     let sky_radius = 2.0;
 
+    let mesh = meshes.add(Cuboid::new(star_size, star_size, star_size));
+    let material = materials.add(Color::srgb(1.0, 1.0, 1.0));
+    
+
 	for star in stars {
 		info!("{:?}", star);
 
 		let star_pos = star_position(star) * sky_radius;
         info!("{:?}", star_pos);
 
-		// commands.spawn((
-		//         PbrBundle {//Plane3d::default().mesh().size(1., 1.)
-		//             mesh: meshes.add(Cuboid::new(star_size, star_size, star_size)),
-		//             material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
-		//             transform: Transform::from_xyz(star_pos.x, star_pos.y, star_pos.z),
-		//             ..default()
-		//         },
-		//         Star,
-		//     ));
-        
+		
+		commands.spawn((
+			PbrBundle {
+	            mesh: mesh.clone(),
+	            material: material.clone(),
+	            transform: Transform::from_xyz(star_pos.x, star_pos.y, star_pos.z),
+	            ..default()
+	        },
+            Star,
+     	));
     }
 
 	
-    commands.spawn((
-        PbrBundle {//Plane3d::default().mesh().size(1., 1.)
-            mesh: meshes.add(Cuboid::new(star_size, star_size, star_size)),
-            material: materials.add(Color::srgb(1.0, 0.0, 0.0)),
-            transform: Transform::from_xyz(1.0, 0.0, 0.0),
-            ..default()
-        },
-        Star,
-    ));
+    // commands.spawn((
+    //     PbrBundle {//Plane3d::default().mesh().size(1., 1.)
+    //         mesh: meshes.add(Cuboid::new(star_size, star_size, star_size)),
+    //         material: materials.add(Color::srgb(1.0, 0.0, 0.0)),
+    //         transform: Transform::from_xyz(1.0, 0.0, 0.0),
+    //         ..default()
+    //     },
+    //     Star,
+    // ));
 
     // light
     commands.spawn(DirectionalLightBundle {
@@ -128,13 +132,13 @@ fn star_position(star_data: StarData) -> Vec3 {
     	+ dec_parts[1].parse::<f64>().unwrap() / 60.0
         + dec_parts[2].parse::<f64>().unwrap() / 3600.0;
 
-	let dec_sign : f64 = if text_dec.starts_with('-') {
-		-1.0
-	} else {
-		1.0
-	};
+	// let dec_sign : f64 = if text_dec.starts_with('-') {
+	// 	-1.0
+	// } else {
+	// 	1.0
+	// };
 
-    return celestial_to_cartesian(ra_seconds/3600.0, dec_sign * dec_deg)
+    return celestial_to_cartesian(ra_seconds/3600.0, dec_deg)
 }
 
 fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
