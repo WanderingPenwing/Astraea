@@ -8,7 +8,7 @@ use std::io::Read;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
 	#[serde(rename = "Dec")]
     dec: String,
@@ -38,6 +38,7 @@ fn main() {
         .run();
 }
 
+
 #[derive(Component)]
 struct Star;
 
@@ -50,25 +51,42 @@ fn setup(
 
 	let stars = get_stars().unwrap();
 
-    let star_size = 0.02;
-    let sky_radius = 2.0;
+    let star_scale = 0.02;
+    let sky_radius = 4.0;
 
-    let mesh = meshes.add(Cuboid::new(star_size, star_size, star_size));
-    let material = materials.add(Color::srgb(1.0, 1.0, 1.0));
+    //let mesh = meshes.add(Cuboid::new(star_size, star_size, star_size));
+	let star_mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
+    //let material = materials.add(Color::srgb(1.0, 1.0, 1.0));
+	let star_material = materials.add(StandardMaterial {
+            emissive: LinearRgba::rgb(1.0, 1.0, 1.0),
+            ..default()
+        });
     
-
 	for star in stars {
-		info!("{:?}", star);
+		//info!("{:?}", star);
 
-		let star_pos = star_position(star) * sky_radius;
-        info!("{:?}", star_pos);
+		let star_pos = star_position(star.clone()) * sky_radius;
+        //info!("{:?}", star_pos);
 
-		
+		let star_mag = star.v.parse::<f32>().unwrap();
+
+		if star_mag < 1.0 {
+			info!("{:?}", star);
+		}
+        let mut star_size = star_scale * 2.512f32.powf(-star_mag*0.5);
+
+        if star.constellation.is_some() {
+        	star_size *= 1.5;
+        }
+
+        star_size = star_size.min(0.63*star_scale);
+        
 		commands.spawn((
 			PbrBundle {
-	            mesh: mesh.clone(),
-	            material: material.clone(),
-	            transform: Transform::from_xyz(star_pos.x, star_pos.y, star_pos.z),
+	            mesh: star_mesh.clone(),
+	            material: star_material.clone(),
+	            transform: Transform::from_xyz(star_pos.x, star_pos.y, star_pos.z)
+	            	.with_scale(Vec3::splat(star_size)),
 	            ..default()
 	        },
             Star,
@@ -119,8 +137,7 @@ fn star_position(star_data: StarData) -> Vec3 {
 	let ra_seconds: f64 = 3600.0 * text_ra[0..2].parse::<f64>().unwrap()
         + 60.0 * text_ra[4..6].parse::<f64>().unwrap()
         + text_ra[8..12].parse::<f64>().unwrap();
-
-	info!(text_dec);
+        
     // Parse Dec
     let formated_dec = text_dec
                 .replace("°", " ")
@@ -151,5 +168,6 @@ fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
 
     Vec3::new(x, y, z)
 }
+
 
 
