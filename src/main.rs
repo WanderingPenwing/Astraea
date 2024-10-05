@@ -30,11 +30,41 @@ struct StarData {
     name: Option<String>,            // Optional field
 }
 
+#[derive(Resource, Default)]
+struct Sky {
+    content: Vec<Constellation>, // or use a specific array size, e.g., [String; 10]
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Constellation {
+	#[serde(rename = "Name")]
+    name: String,           // Name of the constellation
+    #[serde(rename = "RAh")]
+    rah: f64,               // Right Ascension of the constellation in hours
+    #[serde(rename = "DEd")]
+    dec: f64,               // Declination of the constellation in degrees
+    stars: Vec<StarPos>,    // List of stars in the constellation
+    lines: Vec<[u32; 2]>,   // Star connection lines as pairs of star IDs
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct StarPos {
+	id: usize,
+	#[serde(rename = "bfID")]
+	bfid: String,
+	#[serde(rename = "RAh")]
+	rah: f64,              
+	#[serde(rename = "DEd")]
+	dec: f64,               
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .insert_resource(Sky::default())
+        .add_systems(Startup, star_setup)
+        .add_systems(Startup, cons_setup)
+        .add_systems(Update, player_rotate)
         .run();
 }
 
@@ -42,7 +72,12 @@ fn main() {
 #[derive(Component)]
 struct Star;
 
-fn setup(
+#[derive(Component)]
+struct Player {
+	target_rotation: Option<Quat>,
+}
+
+fn star_setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -86,10 +121,21 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 0.0).with_rotation(Quat::from_rotation_y(-1.5)),
-        ..default()
-    });
+    commands.spawn((
+    	Camera3dBundle {
+	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+	        ..default()
+	    },
+	    Player {
+	    	target_rotation: Some(Quat::from_rotation_y(-1.5))
+	    },
+	));
+}
+
+fn cons_setup(mut sky: ResMut<Sky>) {
+	info!("setup");
+
+	sky.content = get_cons().unwrap();
 }
 
 fn get_stars() -> std::io::Result<Vec<StarData>> {
@@ -102,6 +148,18 @@ fn get_stars() -> std::io::Result<Vec<StarData>> {
     let stars: Vec<StarData> = serde_json::from_str(&data).unwrap();
 
     Ok(stars)
+}
+
+fn get_cons() -> std::io::Result<Vec<Constellation>> {
+	let mut file = File::open("data/constellations.json")?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
+
+    info!("###");
+
+    let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
+
+    Ok(sky_data)
 }
 
 fn star_position(star_data: StarData) -> Vec3 {
@@ -138,5 +196,25 @@ fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-
-
+fn player_rotate(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&Player, &Transform)>,
+    mut commands: Commands,
+) {
+	for (mut player, mut transform) in query.iter_mut() {
+	    if keys.just_pressed(KeyCode::Space) {
+	    	info!("space");
+	        
+	        let target_rotation = Quat::from_euler(EulerRot::YXZ, 0.1, 0.5, 0.2);
+	        
+	        // Store the target rotation in a resource
+	        //player.target_rotation = Some(target_rotation);
+	    }
+	    
+	    // if let Some(target_rotation) = target_rotation {
+     //        // let current_rotation = transform.rotation;
+     //        // transform.rotation = current_rotation.slerp(target_rotation.0, 0.1); 
+     //        info!("rotate");
+	    // }
+	}
+}
