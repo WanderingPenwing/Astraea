@@ -60,7 +60,7 @@ pub fn setup(
 	}
 }
 
-pub fn buttons(
+pub fn player_interact(
 	keys: Res<ButtonInput<KeyCode>>,
 	mut game_state: ResMut<NextState<GameState>>
 ) {

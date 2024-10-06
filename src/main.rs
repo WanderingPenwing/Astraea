@@ -10,6 +10,7 @@ use rand::seq::SliceRandom;
 use rand::RngCore;
 
 mod end_state;
+mod start_state;
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
@@ -118,8 +119,8 @@ fn main() {
         .init_state::<GameState>()
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
-        .add_systems(OnEnter(GameState::Start), start_ui_setup)
-        .add_systems(Update, start_menu_system.run_if(in_state(GameState::Start)))
+        .add_systems(OnEnter(GameState::Start), start_state::setup)
+        .add_systems(Update, start_state::player_interact.run_if(in_state(GameState::Start)))
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_ui_setup)
         .add_systems(Update, player_input.run_if(in_state(GameState::Game)))
@@ -127,80 +128,10 @@ fn main() {
         .add_systems(Update, label_update.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
         .add_systems(OnEnter(GameState::End), end_state::setup)
-        .add_systems(Update, end_state::buttons.run_if(in_state(GameState::End)))
+        .add_systems(Update, end_state::player_interact.run_if(in_state(GameState::End)))
         .add_systems(OnExit(GameState::End), despawn_screen::<GameOver>)
         .run();
 }
-
-
-
-fn start_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
-    // Create a container node that places its children (text areas) in a vertical column and centers them
-    let container_node = NodeBundle {
-        style: Style {
-            width: Val::Percent(100.0),  // Full width of the screen
-            height: Val::Percent(100.0), // Full height of the screen
-            flex_direction: FlexDirection::Column, // Arrange children in a column (vertical)
-            justify_content: JustifyContent::Center, // Center vertically
-            align_items: AlignItems::Center, // Center horizontally
-            ..default()
-        },
-        ..default()
-    };
-
-    // Create the container for the text areas
-    let container = commands.spawn(container_node).id();
-
-    // TextStyle for the top text (larger font)
-    let top_text_style = TextStyle {
-        font_size: 50.0, // Larger font size
-        color: Color::WHITE,
-        // font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font if needed
-        ..default()
-    };
-
-    // TextStyle for the bottom text (smaller font)
-    let bottom_text_style = TextStyle {
-        font_size: 30.0, // Smaller font size
-        color: Color::WHITE,
-        // font: asset_server.load("fonts/FiraSans-Regular.ttf"), // Load font if needed
-        ..default()
-    };
-
-    // TextBundle for the top text
-    let top_text_node = TextBundle::from_section(
-        "Astraea", // Text for the top section
-        top_text_style,
-    );
-
-    // TextBundle for the bottom text
-    let bottom_text_node = TextBundle::from_section(
-        "Press Space to Begin", // Text for the bottom section
-        bottom_text_style,
-    );
-
-    // Spawn the text nodes and add them as children to the container
-    let top_text = commands.spawn((top_text_node, StartMenu)).id();
-    let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
-
-    commands.entity(container).push_children(&[top_text, bottom_text]);
-
-    commands.spawn((
-       	Camera3dBundle {
-   	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-   	        ..default()
-   	    },
-   	    Player {
-   	    	target_rotation: None,
-   	    	target_cons_name: None,
-   	    	score: 0,
-   	    	health: 3,
-   	    	thinking: true,
-   	    },
-   	    GameOver,
-   	));
-}
-
 
 fn spawn_cons_lines(
     mut commands: Commands,
@@ -554,24 +485,7 @@ fn player_input(
    }
 }
 
-fn start_menu_system(
-	keys: Res<ButtonInput<KeyCode>>,
-	mut game_state: ResMut<NextState<GameState>>,
-	mut player_query: Query<(&mut Player, &mut Transform)>
-) {
-	if keys.just_pressed(KeyCode::Space) {
-		info!("start space");
-		game_state.set(GameState::Game);
-	}
 
-
-	if let Ok((_player, mut transform)) = player_query.get_single_mut() {
-		let mut rotation = Quat::IDENTITY;
-		rotation *= Quat::from_rotation_y((PI / 6000.0) as f32); // Rotate by 3 degrees (PI/60 radians)
-	    rotation *= Quat::from_rotation_x((-PI / 2000.0) as f32); // Rotate by -3 degrees
-	    transform.rotation *= rotation; // Apply the rotation
-	}
-}
 
 fn label_update(
     mut param_set: ParamSet<(
