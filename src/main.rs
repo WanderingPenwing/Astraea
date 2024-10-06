@@ -76,8 +76,12 @@ fn main() {
 struct Star;
 
 #[derive(Component)]
+struct AnswerButton;
+
+#[derive(Component)]
 struct Player {
 	target_rotation: Option<Quat>,
+	target_cons_name: Option<String>,
 }
 
 fn star_setup(
@@ -130,14 +134,13 @@ fn star_setup(
 	        ..default()
 	    },
 	    Player {
-	    	target_rotation: Some(Quat::from_rotation_y(-1.5))
+	    	target_rotation: None,
+	    	target_cons_name: None,
 	    },
 	));
 }
 
 fn cons_setup(mut sky: ResMut<Sky>) {
-	info!("setup");
-
 	sky.content = get_cons().unwrap();
 }
 
@@ -145,8 +148,6 @@ fn get_stars() -> std::io::Result<Vec<StarData>> {
     let mut file = File::open("data/stars.json")?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
-
-    info!("###");
 
     let stars: Vec<StarData> = serde_json::from_str(&data).unwrap();
 
@@ -157,8 +158,6 @@ fn get_cons() -> std::io::Result<Vec<Constellation>> {
 	let mut file = File::open("data/constellations.json")?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
-
-    info!("###");
 
     let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
 
@@ -203,7 +202,7 @@ fn player_rotate(
     keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
     sky: Res<Sky>, // Res to access the Sky resource
-    //mut commands: Commands,
+    mut text_query: Query<&mut Text, With<AnswerButton>>,
 ) {
     for (mut player, mut transform) in query.iter_mut() {
         // If the space key was just pressed
@@ -217,6 +216,14 @@ fn player_rotate(
 
                 // Store the target rotation in the player component
                 player.target_rotation = Some(target_rotation);
+                player.target_cons_name = Some(constellation.name.clone());
+
+                
+                info!("constellation : {}", constellation.name);
+
+                for mut text in &mut text_query {
+                    text.sections[0].value = constellation.name.clone();
+                }
             }
         }
 
@@ -289,7 +296,7 @@ fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
         // Spawn the button and its text as children of the container
         let button = commands.spawn(button_node).id();
-        let button_text = commands.spawn(button_text_node).id();
+        let button_text = commands.spawn((button_text_node, AnswerButton)).id();
 
         commands.entity(button).push_children(&[button_text]);
         commands.entity(container).push_children(&[button]);
