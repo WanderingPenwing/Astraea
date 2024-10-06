@@ -90,6 +90,8 @@ struct GameOver;
 struct Player {
 	target_rotation: Option<Quat>,
 	target_cons_name: Option<String>,
+	score: usize,
+	health: usize,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -107,13 +109,31 @@ fn main() {
         .init_state::<GameState>()
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
-        .add_systems(Startup, start_ui_setup)
+        .add_systems(OnEnter(GameState::Start), start_ui_setup)
         .add_systems(Update, start_menu_system.run_if(in_state(GameState::Start)))
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_ui_setup)
         .add_systems(Update, player_input.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_buttons.run_if(in_state(GameState::Game)))
+        .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
+        .add_systems(OnEnter(GameState::End), end_setup)
+        .add_systems(Update, end_buttons.run_if(in_state(GameState::End)))
+        .add_systems(OnExit(GameState::End), despawn_screen::<GameOver>)
         .run();
+}
+
+fn end_setup() {
+	info!("ending")
+}
+
+fn end_buttons(
+	keys: Res<ButtonInput<KeyCode>>,
+	mut game_state: ResMut<NextState<GameState>>
+) {
+	if keys.just_pressed(KeyCode::Space) {
+		info!("start space");
+		game_state.set(GameState::Start);
+	}
 }
 
 fn start_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
@@ -166,6 +186,20 @@ fn start_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
 
     commands.entity(container).push_children(&[top_text, bottom_text]);
+
+    commands.spawn((
+       	Camera3dBundle {
+   	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+   	        ..default()
+   	    },
+   	    Player {
+   	    	target_rotation: None,
+   	    	target_cons_name: None,
+   	    	score: 0,
+   	    	health: 3,
+   	    },
+   	    GameOver,
+   	));
 }
 
 
@@ -209,7 +243,8 @@ fn spawn_cons_lines(
 	        transform: Transform::default(), // Position and scale for the line
 	        ..default()
 	    },
-	 	ConstellationLine
+	 	ConstellationLine,
+	 	MainGame
 	));
 }
 
@@ -252,18 +287,6 @@ fn star_setup(
             Star,
      	));
     }
-
-    // camera
-    commands.spawn((
-    	Camera3dBundle {
-	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-	        ..default()
-	    },
-	    Player {
-	    	target_rotation: None,
-	    	target_cons_name: None,
-	    },
-	));
 }
 
 fn get_stars() -> std::io::Result<Vec<StarData>> {
@@ -373,8 +396,8 @@ fn game_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         );
 
         // Spawn the button and its text as children of the container
-        let button = commands.spawn(button_node).id();
-        let button_text = commands.spawn((button_text_node, AnswerButton)).id();
+        let button = commands.spawn((button_node, MainGame)).id();
+        let button_text = commands.spawn((button_text_node, AnswerButton, MainGame)).id();
 
         commands.entity(button).push_children(&[button_text]);
         commands.entity(container).push_children(&[button]);
@@ -433,7 +456,7 @@ fn player_input(
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	commands: Commands,
 ) {
-    for (mut player, mut transform) in player_query.iter_mut() {
+    if let Ok((mut player, mut transform)) = player_query.get_single_mut() {
         // If the space key was just pressed
         if keys.just_pressed(KeyCode::Space) || player.target_cons_name.is_none() {
             choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands);
@@ -496,6 +519,7 @@ fn game_buttons(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     sky: Res<Sky>,
+    mut game_state: ResMut<NextState<GameState>>
 ) {
 	let mut pressed_button: Option<String> = None;
 	
@@ -513,41 +537,44 @@ fn game_buttons(
     }
 
 	if let Some(selected_cons) = pressed_button {
-		let mut maybe_target_cons: Option<String> = None;
+		if let Ok(mut player) = player_query.get_single_mut() {
+		    if let Some(target_cons) = player.target_cons_name.clone() {
+		    	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+		    	
+		    	if target_cons == selected_cons {
+		    		info!("success");
+		    		player.score += 100;
+		    	} else {
+		    		player.health -= 1;
+		    		if player.health == 0 {
+		    			info!("dead");
+		    			game_state.set(GameState::End);
+		    		}
+		    	}
 
-		for player in &mut player_query {
-			maybe_target_cons = player.target_cons_name.clone();
-	    }
-	    
-	    if let Some(target_cons) = maybe_target_cons {
-	    	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
-	    	
-	    	if target_cons == selected_cons {
-	    		info!("success");
-	    	}
+		  		for (
+			        _interaction,
+			        mut color,
+			        mut border_color,
+			        children
+			    ) in &mut interaction_query {
+			    	if let Ok(text) = text_query.get_mut(children[0]) {
+			    		let button_text = text.sections[0].value.clone();
+			    		
+				        *color = if button_text == target_cons {
+				        	RIGHT_BUTTON.into()
+				        } else {
+				        	WRONG_BUTTON.into()
+				        };
 
-	  		for (
-		        _interaction,
-		        mut color,
-		        mut border_color,
-		        children
-		    ) in &mut interaction_query {
-		    	if let Ok(text) = text_query.get_mut(children[0]) {
-		    		let button_text = text.sections[0].value.clone();
-		    		
-			        *color = if button_text == target_cons {
-			        	RIGHT_BUTTON.into()
-			        } else {
-			        	WRONG_BUTTON.into()
-			        };
-
-			        border_color.0 = if button_text == selected_cons {
-			        	Color::WHITE
-			        } else {
-			        	Color::BLACK
-			        };
+				        border_color.0 = if button_text == selected_cons {
+				        	Color::WHITE
+				        } else {
+				        	Color::BLACK
+				        };
+				    }
 			    }
-		    }
+			}
 	    }
 	}
 }
