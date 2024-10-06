@@ -495,11 +495,20 @@ fn player_input(
 
 fn start_menu_system(
 	keys: Res<ButtonInput<KeyCode>>,
-	mut game_state: ResMut<NextState<GameState>>
+	mut game_state: ResMut<NextState<GameState>>,
+	mut player_query: Query<(&mut Player, &mut Transform)>
 ) {
 	if keys.just_pressed(KeyCode::Space) {
 		info!("start space");
 		game_state.set(GameState::Game);
+	}
+
+
+	if let Ok((_player, mut transform)) = player_query.get_single_mut() {
+		let mut rotation = Quat::IDENTITY;
+		rotation *= Quat::from_rotation_y((PI / 6000.0) as f32); // Rotate by 3 degrees (PI/60 radians)
+	    rotation *= Quat::from_rotation_x((-PI / 2000.0) as f32); // Rotate by -3 degrees
+	    transform.rotation *= rotation; // Apply the rotation
 	}
 }
 
