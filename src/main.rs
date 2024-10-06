@@ -204,64 +204,57 @@ fn player_rotate(
     mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
     sky: Res<Sky>, // Res to access the Sky resource
     mut text_query: Query<&mut Text, With<AnswerButton>>,
+    mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 ) {
     for (mut player, mut transform) in query.iter_mut() {
         // If the space key was just pressed
         if keys.just_pressed(KeyCode::Space) {
-            info!("space pressed");
-
-            // Select a random constellation from the Sky's content
             if sky.content.len() >= 4 {
-                // Select 4 random constellations without repetition
                 let mut rng = rand::thread_rng();
                 let mut selected_constellations = sky.content.clone();
                 selected_constellations.shuffle(&mut rng);
-                let constellations = &selected_constellations[0..4]; // Select 4 constellations
+                let constellations = &selected_constellations[0..4];
 
-                // Assign the first one as the target
                 let target_index = rng.next_u32().rem_euclid(4) as usize;
-                info!("target const index : {}", target_index);
                 let target_constellation = &constellations[target_index];
                 let target_rotation = Quat::from_rotation_arc(
                     Vec3::Z,
                     celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
                 );
 
-                // Store the target rotation in the player component
                 player.target_rotation = Some(target_rotation);
                 player.target_cons_name = Some(target_constellation.name.clone());
 
                 info!("Target constellation: {}", target_constellation.name);
 
-                // Iterate over the button text query and assign each a constellation name
                 for (i, mut text) in text_query.iter_mut().enumerate() {
-                    // Assign the name of one of the 4 selected constellations to each button
                     text.sections[0].value = constellations[i].name.clone();
                 }
+
+                for (mut bg_color, mut border_color) in &mut button_query {
+                    *bg_color = NORMAL_BUTTON.into();
+                    *border_color = Color::BLACK.into();
+                }
             } else {
-                // Handle case where there are not enough constellations
                 info!("Not enough constellations in the sky (need 4)");
             }
         }
 
-        // If there is a target rotation, smoothly rotate the player towards it
         if let Some(target_rotation) = player.target_rotation {
-            // Get the current rotation of the player
             let current_rotation = transform.rotation;
 
-            // Slerp between the current rotation and the target rotation
-            transform.rotation = current_rotation.slerp(target_rotation, 0.1); // 0.1 is the interpolation factor
+            transform.rotation = current_rotation.slerp(target_rotation, 0.1);
 
-            // Optionally, you could clear the target rotation when close enough
             if transform.rotation.angle_between(target_rotation) < 0.01 {
-                player.target_rotation = None; // Clear once the rotation is close enough
+                player.target_rotation = None; 
             }
         }
    }
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const PRESSED_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
+const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
+const RIGHT_BUTTON: Color = Color::srgb(0.15, 0.50, 0.15);
 
 fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a container node that places its children (buttons) at the bottom of the screen
@@ -330,36 +323,63 @@ fn button_system(
             &mut BorderColor,
             &Children,
         ),
-        (
-            Changed<Interaction>,
-            With<Button>
-        ),
+        With<Button>,
     >,
-    mut text_query: Query<&mut Text>,
+    mut text_query: Query<&mut Text, With<AnswerButton>>,
+    mut player_query: Query<&mut Player>,
 ) {
+	let mut pressed_button: Option<String> = None;
+	
     for (
         interaction,
-        mut color,
-        mut border_color,
+        _color,
+        _border_color,
         children
     ) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
-        match *interaction {
-            Interaction::Pressed => {
-                *color = PRESSED_BUTTON.into();
-                border_color.0 = Color::WHITE;
-                info!("button pressed : {:?}", text.sections[0].value);
-            }
-            Interaction::Hovered => {
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
-            }
-            Interaction::None => {
-                *color = NORMAL_BUTTON.into();
-                border_color.0 = Color::BLACK;
+        if *interaction == Interaction::Pressed {
+        	if let Ok(text) = text_query.get_mut(children[0]) {
+                pressed_button = Some(text.sections[0].value.clone());
             }
         }
     }
+
+	if let Some(selected_cons) = pressed_button {
+		let mut maybe_target_cons: Option<String> = None;
+
+		for player in &mut player_query {
+			maybe_target_cons = player.target_cons_name.clone();
+	    }
+	    
+	    if let Some(target_cons) = maybe_target_cons {
+	    	if target_cons == selected_cons {
+	    		info!("success");
+	    	}
+
+	  		for (
+		        _interaction,
+		        mut color,
+		        mut border_color,
+		        children
+		    ) in &mut interaction_query {
+		    	if let Ok(text) = text_query.get_mut(children[0]) {
+		    		let button_text = text.sections[0].value.clone();
+		    		
+			        *color = if button_text == target_cons {
+			        	RIGHT_BUTTON.into()
+			        } else {
+			        	WRONG_BUTTON.into()
+			        };
+
+			        border_color.0 = if button_text == selected_cons {
+			        	Color::WHITE
+			        } else {
+			        	Color::BLACK
+			        };
+			    }
+		    }
+	    }
+	}
 }
+
 
 
