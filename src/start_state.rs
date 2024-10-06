@@ -8,9 +8,10 @@ use crate::PlayerState;
 
 pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.spawn(AudioBundle {
-        source: asset_server.load("assets/Banjo.ogg"),
-        ..default()
+        source: asset_server.load("Banjo.ogg"),
+        settings: PlaybackSettings::LOOP,
     });
+    info!("audio started");
 }
 
 pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
