@@ -13,6 +13,11 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
 const RIGHT_BUTTON: Color = Color::srgb(0.15, 0.50, 0.15);
 
+const EASYNESS: f32 = 1.5;
+const MAX_STAR_SIZE: f32 = 0.63;
+const STAR_SCALE: f32 = 0.02;
+const SKY_RADIUS: f32 = 4.0;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
 	#[serde(rename = "Dec")]
@@ -110,20 +115,6 @@ fn spawn_cons_lines(
     	}
     }
 
-    info!("show : {}", target_constellation.name);
-
-    // Define vertices for the line (two points in 3D space)
-    // let vertices = vec![
-    //     [-1.0, -1.0, 0.0], // Starting point (origin)
-    //     [-1.0, 1.0, 0.0], // Ending point
-    //     [1.0, -1.0, 0.0], // Starting point (origin)
-    //     [1.0, 1.0, 0.0], // Ending point
-    //     [0.0, -1.0, 1.0], // Starting point (origin)
-    //     [0.0, 1.0, 1.0], // Ending point
-    //     [0.0, -1.0, -1.0], // Starting point (origin)
-    //     [0.0, 1.0, -1.0], // Ending point
-    // ];
-
     let mut vertices : Vec<Vec3> = vec![];
 
     for line in target_constellation.lines {
@@ -136,11 +127,7 @@ fn spawn_cons_lines(
     // Create the mesh and add the vertices
     let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
-
-    // (Optional) Define indices if you want more complex line patterns
-    // mesh.set_indices(Some(Indices::U32(vec![0, 1])));
-
-    // Spawn the mesh with the line material in the scene
+    
     commands.spawn((
 	    PbrBundle {
 	        mesh: meshes.add(mesh),
@@ -162,9 +149,6 @@ fn star_setup(
 
 	let stars = get_stars().unwrap();
 
-    let star_scale = 0.02;
-    let sky_radius = 4.0;
-
     //let mesh = meshes.add(Cuboid::new(star_size, star_size, star_size));
 	let star_mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
     //let material = materials.add(Color::srgb(1.0, 1.0, 1.0));
@@ -174,14 +158,14 @@ fn star_setup(
         });
     
 	for star in stars {
-		let star_pos = star_position(star.clone()) * sky_radius;
+		let star_pos = star_position(star.clone()) * SKY_RADIUS;
 		let star_mag = star.v.parse::<f32>().unwrap();
-        let mut star_size = star_scale * 2.512f32.powf(-star_mag*0.5);
+        let mut star_size = STAR_SCALE * 2.512f32.powf(-star_mag*0.5);
 
         if star.constellation.is_some() {
-        	star_size *= 1.5;
+        	star_size *= EASYNESS;
         }
-        star_size = star_size.min(0.63*star_scale);
+        star_size = star_size.min(MAX_STAR_SIZE*STAR_SCALE);
         
 		commands.spawn((
 			PbrBundle {
