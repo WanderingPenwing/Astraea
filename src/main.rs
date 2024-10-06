@@ -66,8 +66,8 @@ fn main() {
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
         .add_systems(Startup, ui_setup)
-        //.add_systems(Update, button_interaction)
         .add_systems(Update, player_rotate)
+        .add_systems(Update, button_system)
         .run();
 }
 
@@ -236,51 +236,92 @@ fn player_rotate(
    }
 }
 
-fn ui_setup(
-	mut commands: Commands, 
-	//asset_server: Res<AssetServer>, 
-	//mut materials: ResMut<Assets<ColorMaterial>>
-) {
-	let text = "Hello world!";
-    
-    commands.spawn(
-        TextBundle::from_section(
-            text,
-            TextStyle {
-                font_size: 100.0,
-                color: Color::WHITE,
-                ..default()
-            },
-        ) // Set the alignment of the Text
-        .with_text_justify(JustifyText::Center)
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const PRESSED_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
+
+fn ui_setup(mut commands: Commands) {
+    let container_node = NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
-        })
+        },
+        ..default()
+    };
+
+    let button_node =  ButtonBundle {
+        style: Style {
+            width: Val::Px(150.0),
+            height: Val::Px(65.0),
+            border: UiRect::all(Val::Px(5.0)),
+            // horizontally center child text
+            justify_content: JustifyContent::Center,
+            // vertically center child text
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        border_color: BorderColor(Color::BLACK),
+        background_color: NORMAL_BUTTON.into(),
+        ..default()
+    };
+
+    let button_text_node = TextBundle::from_section(
+        "Button",
+        TextStyle {
+            font_size: 40.0,
+            color: Color::srgb(0.9, 0.9, 0.9),
+            ..default()
+        },
     );
+
+    let container = commands.spawn(container_node).id();
+    let button = commands.spawn(button_node).id();
+    let button_text = commands.spawn(button_text_node).id();
+
+    commands.entity(button).push_children(&[button_text]);
+    commands.entity(container).push_children(&[button]);
 }
 
-// System to handle button interaction
-// fn button_interaction(
-//     mut interaction_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
-// ) {
-//     for (interaction, mut color) in &mut interaction_query {
-//         match *interaction {
-//             Interaction::Pressed => {
-//                 *color = Color::srgb(0.35, 0.75, 0.35).into(); // Change color on click
-//                 info!("Button clicked!");
-//             }
-//             Interaction::Hovered => {
-//                 *color = Color::srgb(0.25, 0.25, 0.25).into(); // Change color on hover
-//             }
-//             Interaction::None => {
-//                 *color = Color::srgb(0.15, 0.15, 0.15).into(); // Default color
-//             }
-//         }
-//     }
-// }
+
+
+fn button_system(
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        (
+            Changed<Interaction>,
+            With<Button>
+        ),
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (
+        interaction,
+        mut color,
+        mut border_color,
+        children
+    ) in &mut interaction_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match *interaction {
+            Interaction::Pressed => {
+                text.sections[0].value = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+            Interaction::Hovered => {}
+            Interaction::None => {
+                text.sections[0].value = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
+        }
+    }
+}
 
 
