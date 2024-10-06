@@ -107,6 +107,7 @@ fn main() {
         .init_state::<GameState>()
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
+        .add_systems(Startup, start_ui_setup)
         .add_systems(Update, start_menu_system.run_if(in_state(GameState::Start)))
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_ui_setup)
@@ -114,6 +115,59 @@ fn main() {
         .add_systems(Update, game_buttons.run_if(in_state(GameState::Game)))
         .run();
 }
+
+fn start_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
+    // Create a container node that places its children (text areas) in a vertical column and centers them
+    let container_node = NodeBundle {
+        style: Style {
+            width: Val::Percent(100.0),  // Full width of the screen
+            height: Val::Percent(100.0), // Full height of the screen
+            flex_direction: FlexDirection::Column, // Arrange children in a column (vertical)
+            justify_content: JustifyContent::Center, // Center vertically
+            align_items: AlignItems::Center, // Center horizontally
+            ..default()
+        },
+        ..default()
+    };
+
+    // Create the container for the text areas
+    let container = commands.spawn(container_node).id();
+
+    // TextStyle for the top text (larger font)
+    let top_text_style = TextStyle {
+        font_size: 50.0, // Larger font size
+        color: Color::WHITE,
+        // font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font if needed
+        ..default()
+    };
+
+    // TextStyle for the bottom text (smaller font)
+    let bottom_text_style = TextStyle {
+        font_size: 30.0, // Smaller font size
+        color: Color::WHITE,
+        // font: asset_server.load("fonts/FiraSans-Regular.ttf"), // Load font if needed
+        ..default()
+    };
+
+    // TextBundle for the top text
+    let top_text_node = TextBundle::from_section(
+        "Astraea", // Text for the top section
+        top_text_style,
+    );
+
+    // TextBundle for the bottom text
+    let bottom_text_node = TextBundle::from_section(
+        "Press Space to Begin", // Text for the bottom section
+        bottom_text_style,
+    );
+
+    // Spawn the text nodes and add them as children to the container
+    let top_text = commands.spawn((top_text_node, StartMenu)).id();
+    let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
+
+    commands.entity(container).push_children(&[top_text, bottom_text]);
+}
+
 
 fn spawn_cons_lines(
     mut commands: Commands,
@@ -124,7 +178,7 @@ fn spawn_cons_lines(
 ) {
     // Create a material for the line
     let line_material = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(1.0, 0.5, 0.5), // Red color for the line
+        emissive: LinearRgba::rgb(0.5, 0.5, 1.0), // Red color for the line
         ..default()
     });
 
@@ -327,51 +381,63 @@ fn game_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     }
 }
 
-fn player_input(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
-    sky: Res<Sky>, // Res to access the Sky resource
+fn choose_constellation(
+	player: &mut Player, 
+	sky: Res<Sky>, // Res to access the Sky resource
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	mut commands: Commands,
 ) {
+	if sky.content.len() >= 4 {
+        let mut rng = rand::thread_rng();
+        let mut selected_constellations = sky.content.clone();
+        selected_constellations.shuffle(&mut rng);
+        let constellations = &selected_constellations[0..4];
+
+        let target_index = rng.next_u32().rem_euclid(4) as usize;
+        let target_constellation = &constellations[target_index];
+        let target_rotation = Quat::from_rotation_arc(
+            Vec3::Z,
+            -celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
+        );
+
+        player.target_rotation = Some(target_rotation);
+        player.target_cons_name = Some(target_constellation.name.clone());
+
+        info!("Target constellation: {}", target_constellation.name);
+
+        for (i, mut text) in text_query.iter_mut().enumerate() {
+            text.sections[0].value = constellations[i].name.clone();
+        }
+
+        for (mut bg_color, mut border_color) in &mut button_query {
+            *bg_color = NORMAL_BUTTON.into();
+            *border_color = Color::BLACK.into();
+        }
+
+        for (entity, _line) in constellation_line_query.iter() {
+            commands.entity(entity).despawn();
+        }
+    } else {
+        info!("Not enough constellations in the sky (need 4)");
+    }
+}
+
+fn player_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut player_query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
+    sky: Res<Sky>, // Res to access the Sky resource
+    text_query: Query<&mut Text, With<AnswerButton>>,
+    button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
+	constellation_line_query : Query<(Entity, &ConstellationLine)>,
+	commands: Commands,
+) {
     for (mut player, mut transform) in player_query.iter_mut() {
         // If the space key was just pressed
-        if keys.just_pressed(KeyCode::Space) {
-            if sky.content.len() >= 4 {
-                let mut rng = rand::thread_rng();
-                let mut selected_constellations = sky.content.clone();
-                selected_constellations.shuffle(&mut rng);
-                let constellations = &selected_constellations[0..4];
-
-                let target_index = rng.next_u32().rem_euclid(4) as usize;
-                let target_constellation = &constellations[target_index];
-                let target_rotation = Quat::from_rotation_arc(
-                    Vec3::Z,
-                    -celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
-                );
-
-                player.target_rotation = Some(target_rotation);
-                player.target_cons_name = Some(target_constellation.name.clone());
-
-                info!("Target constellation: {}", target_constellation.name);
-
-                for (i, mut text) in text_query.iter_mut().enumerate() {
-                    text.sections[0].value = constellations[i].name.clone();
-                }
-
-                for (mut bg_color, mut border_color) in &mut button_query {
-                    *bg_color = NORMAL_BUTTON.into();
-                    *border_color = Color::BLACK.into();
-                }
-
-                for (entity, _line) in constellation_line_query.iter() {
-                    commands.entity(entity).despawn();
-                }
-            } else {
-                info!("Not enough constellations in the sky (need 4)");
-            }
+        if keys.just_pressed(KeyCode::Space) || player.target_cons_name.is_none() {
+            choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands);
+			return
         }
 
         let mut rotation = Quat::IDENTITY;
@@ -406,9 +472,11 @@ fn player_input(
 
 fn start_menu_system(
 	keys: Res<ButtonInput<KeyCode>>,
+	mut game_state: ResMut<NextState<GameState>>
 ) {
 	if keys.just_pressed(KeyCode::Space) {
 		info!("start space");
+		game_state.set(GameState::Game);
 	}
 }
 
