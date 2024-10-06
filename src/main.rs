@@ -40,9 +40,6 @@ struct Sky {
     content: Vec<Constellation>,
 }
 
-#[derive(Resource, Default)]
-struct ShowConstellationEvent(bool);
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Constellation {
 	#[serde(rename = "Name")]
@@ -85,7 +82,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Sky::default())
-		.insert_resource(ShowConstellationEvent::default())
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
         .add_systems(Startup, ui_setup)
@@ -99,14 +95,22 @@ fn spawn_cons_lines(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     sky: Res<Sky>,
-   	constellation_name: String,
+   	target_constellation_name: String,
 ) {
-	info!("show : {}", constellation_name);
     // Create a material for the line
     let line_material = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(1.0, 0.5, 0.5), // Red color for the line
         ..default()
     });
+
+	let mut target_constellation = sky.content[0].clone();
+    for constellation in sky.content.clone() {
+    	if constellation.name == target_constellation_name {
+    		target_constellation = constellation;
+    	}
+    }
+
+    info!("show : {}", target_constellation.name);
 
     // Define vertices for the line (two points in 3D space)
     let vertices = vec![
@@ -381,9 +385,9 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut player_query: Query<&mut Player>,
-	mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+	commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
     sky: Res<Sky>,
 ) {
 	let mut pressed_button: Option<String> = None;
