@@ -4,6 +4,14 @@ use crate::Player;
 use crate::GameState;
 use crate::GameOver;
 use crate::StartMenu;
+use crate::PlayerState;
+
+pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
+    commands.spawn(AudioBundle {
+        source: asset_server.load("assets/Banjo.ogg"),
+        ..default()
+    });
+}
 
 pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     // Create a container node that places its children (text areas) in a vertical column and centers them
@@ -66,7 +74,7 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
    	    	target_cons_name: None,
    	    	score: 0,
    	    	health: 3,
-   	    	thinking: true,
+   	    	state: PlayerState::Playing,
    	    },
    	    GameOver,
    	));

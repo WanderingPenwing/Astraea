@@ -2,13 +2,17 @@ use bevy::prelude::*;
 use std::f64::consts::PI;
 use rand::seq::SliceRandom;
 use rand::RngCore;
+
 use crate::Player;
 use crate::GameState;
 use crate::MainGame;
 use crate::Sky;
 use crate::ConstellationLine;
+use crate::PlayerState;
+
 use crate::celestial_to_cartesian;
 use crate::spawn_cons_lines;
+
 use crate::NORMAL_BUTTON;
 use crate::RIGHT_BUTTON;
 use crate::WRONG_BUTTON;
@@ -21,6 +25,9 @@ pub struct HealthLabel;
 
 #[derive(Component)]
 pub struct ScoreLabel;
+
+#[derive(Component)]
+pub struct HintLabel;
 
 pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     // Create a container node that places its children (buttons) at the bottom of the screen
@@ -116,7 +123,7 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
             ..label_style.clone()
         },
         text: Text::from_section(
-            "0000", // Text content
+            "0", // Text content
             TextStyle {
                 // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 30.0,
@@ -127,9 +134,40 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         ..default()
     };
 
+    // Centered container for the "Hint" label
+    let centered_container_node = NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0), // Full width
+            top: Val::Px(20.0),         // Positioned at the top
+            justify_content: JustifyContent::Center, // Center horizontally
+            align_items: AlignItems::Center,         // Center vertically
+            ..default()
+        },
+        ..default()
+    };
+
+    // Hint label
+    let hint_label_node = TextBundle::from_section(
+        "hint",
+        TextStyle {
+            // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 20.0,
+            color: Color::srgb(0.7, 0.7, 0.7),
+            ..default()
+        },
+    );
+    
     // Spawn the top left and top right labels
     commands.spawn((top_left_label_node, MainGame, HealthLabel));
     commands.spawn((top_right_label_node, MainGame, ScoreLabel));
+
+	// Create a parent container and then spawn the hint label inside it
+    let centered_container = commands.spawn(centered_container_node).id();
+    let hint_label = commands.spawn((hint_label_node, MainGame, HintLabel)).id();
+
+    commands.entity(centered_container).push_children(&[hint_label]);
+
 }
 
 
@@ -141,7 +179,9 @@ pub fn player_interact(
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	commands: Commands,
-    game_state: ResMut<NextState<GameState>>
+    game_state: ResMut<NextState<GameState>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if let Ok((mut player, mut transform)) = player_query.get_single_mut() {
         // If the space key was just pressed
@@ -161,6 +201,13 @@ pub fn player_interact(
         if keys.pressed(KeyCode::KeyD) {
             rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); // Rotate by -3 degrees
         }
+
+        if keys.pressed(KeyCode::KeyI) && player.state == PlayerState::Playing {
+        	if let Some(target_cons) = player.target_cons_name.clone() {
+        		player.state = PlayerState::Hinted;
+    			spawn_cons_lines(commands, meshes, materials, sky, target_cons);
+    		}
+ 		}
 
         // Apply the rotation to the transform
         if rotation != Quat::IDENTITY {
@@ -186,6 +233,7 @@ pub fn ui_labels(
     mut param_set: ParamSet<(
         Query<&mut Text, With<HealthLabel>>,
         Query<&mut Text, With<ScoreLabel>>,
+        Query<&mut Text, With<HintLabel>>,
     )>,
     mut player_query: Query<(&mut Player, &mut Transform)>,
 ) {
@@ -199,7 +247,15 @@ pub fn ui_labels(
         if let Ok(mut score_text) = param_set.p1().get_single_mut() {
             score_text.sections[0].value = format!("{}", player.score);
         }
-    }
+
+		if let Ok(mut hint_text) = param_set.p2().get_single_mut() {
+			if player.state == PlayerState::Answered {
+	            hint_text.sections[0].value = "press space to continue".into();
+	        } else {
+	        	hint_text.sections[0].value = "press i to get an hint".into();
+	        }
+	    }
+	}
 }
 
 
@@ -221,7 +277,7 @@ pub fn ui_buttons(
     sky: Res<Sky>
 ) {
 	if let Ok(mut player) = player_query.get_single_mut() {
-		if !player.thinking {
+		if player.state == PlayerState::Answered {
 			return
 		}
 		
@@ -242,15 +298,21 @@ pub fn ui_buttons(
 
 		if let Some(selected_cons) = pressed_button {
 		    if let Some(target_cons) = player.target_cons_name.clone() {
-		    	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+		    	if player.state == PlayerState::Playing {
+		    		spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+		    	}
 		    	
 		    	if target_cons == selected_cons {
-		    		player.score += 100;
+		    		if player.state == PlayerState::Hinted {
+		    			player.score += 20;
+		    		} else {
+		    			player.score += 100;
+		    		}
 		    	} else {
 		    		player.health -= 1;
 		    	}
 
-		    	player.thinking = false;
+		    	player.state = PlayerState::Answered;
 
 		  		for (
 			        _interaction,
@@ -323,7 +385,7 @@ fn choose_constellation(
             commands.entity(entity).despawn();
         }
 
-        player.thinking = true;
+        player.state = PlayerState::Playing;
     } else {
         info!("Not enough constellations in the sky (need 4)");
     }

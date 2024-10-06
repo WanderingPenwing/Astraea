@@ -91,7 +91,14 @@ struct Player {
 	target_cons_name: Option<String>,
 	score: usize,
 	health: usize,
-	thinking: bool,
+	state: PlayerState,
+}
+
+#[derive(PartialEq)]
+enum PlayerState {
+	Playing,
+	Hinted,
+	Answered,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -110,6 +117,7 @@ fn main() {
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
         .add_systems(OnEnter(GameState::Start), start_state::setup)
+        .add_systems(OnEnter(GameState::Start), start_state::audio_setup)
         .add_systems(Update, start_state::player_interact.run_if(in_state(GameState::Start)))
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_state::setup)
