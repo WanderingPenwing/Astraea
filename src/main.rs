@@ -89,17 +89,19 @@ fn main() {
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
         .add_systems(Startup, ui_setup)
-        .add_systems(Startup, spawn_line)
         .add_systems(Update, player_rotate)
         .add_systems(Update, button_system)
         .run();
 }
 
-fn spawn_line(
+fn spawn_cons_lines(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    sky: Res<Sky>,
+   	constellation_name: String,
 ) {
+	info!("show : {}", constellation_name);
     // Create a material for the line
     let line_material = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(1.0, 0.5, 0.5), // Red color for the line
@@ -315,7 +317,7 @@ fn player_rotate(
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
-	mut commands: Commands
+	mut commands: Commands,
 ) {
     for (mut player, mut transform) in player_query.iter_mut() {
         // If the space key was just pressed
@@ -379,6 +381,10 @@ fn button_system(
     >,
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut player_query: Query<&mut Player>,
+	mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    sky: Res<Sky>,
 ) {
 	let mut pressed_button: Option<String> = None;
 	
@@ -403,6 +409,8 @@ fn button_system(
 	    }
 	    
 	    if let Some(target_cons) = maybe_target_cons {
+	    	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+	    	
 	    	if target_cons == selected_cons {
 	    		info!("success");
 	    	}
