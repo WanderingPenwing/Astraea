@@ -362,9 +362,14 @@ fn choose_constellation(
 
         let target_index = rng.next_u32().rem_euclid(4) as usize;
         let target_constellation = &constellations[target_index];
+
+		let mut mean_pos = Vec3::ZERO;
+        for star in target_constellation.stars.clone() {
+        	mean_pos += celestial_to_cartesian(star.rah, star.dec)
+        }
         let target_rotation = Quat::from_rotation_arc(
             Vec3::Z,
-            -celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
+            -mean_pos*(1.0/target_constellation.stars.len() as f32),
         );
 
         player.target_rotation = Some(target_rotation);
