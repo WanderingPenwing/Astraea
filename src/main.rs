@@ -239,49 +239,60 @@ fn player_rotate(
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const PRESSED_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
 
-fn ui_setup(mut commands: Commands) {
+fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Create a container node that places its children (buttons) at the bottom of the screen
     let container_node = NodeBundle {
         style: Style {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
+            width: Val::Percent(100.0), // Full width of the screen
+            height: Val::Percent(100.0), // Full height of the screen
+            flex_direction: FlexDirection::Row, // Arrange children in a row (horizontal)
+            justify_content: JustifyContent::Center, // Center horizontally
+            align_items: AlignItems::FlexEnd, // Place at the bottom of the screen
+            padding: UiRect::all(Val::Px(10.0)), // Optional padding
             ..default()
         },
         ..default()
     };
 
-    let button_node =  ButtonBundle {
-        style: Style {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
-            // horizontally center child text
-            justify_content: JustifyContent::Center,
-            // vertically center child text
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        border_color: BorderColor(Color::BLACK),
-        background_color: NORMAL_BUTTON.into(),
+    // Button style (same for all buttons)
+    let button_style = Style {
+        width: Val::Px(150.0),
+        height: Val::Px(65.0),
+        margin: UiRect::all(Val::Px(10.0)), // Add margin between buttons
+        justify_content: JustifyContent::Center, // Center text horizontally
+        align_items: AlignItems::Center, // Center text vertically
+        border: UiRect::all(Val::Px(5.0)),
         ..default()
     };
 
-    let button_text_node = TextBundle::from_section(
-        "Button",
-        TextStyle {
-            font_size: 40.0,
-            color: Color::srgb(0.9, 0.9, 0.9),
-            ..default()
-        },
-    );
-
+    // Create the container for the buttons
     let container = commands.spawn(container_node).id();
-    let button = commands.spawn(button_node).id();
-    let button_text = commands.spawn(button_text_node).id();
 
-    commands.entity(button).push_children(&[button_text]);
-    commands.entity(container).push_children(&[button]);
+    // Function to create buttons with different text
+    for i in 1..=4 {
+        let button_node = ButtonBundle {
+            style: button_style.clone(),
+            border_color: BorderColor(Color::BLACK),
+            background_color: NORMAL_BUTTON.into(),
+            ..default()
+        };
+
+        let button_text_node = TextBundle::from_section(
+            format!("Button {}", i),
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font
+                font_size: 40.0,
+                color: Color::srgb(0.9, 0.9, 0.9),
+            },
+        );
+
+        // Spawn the button and its text as children of the container
+        let button = commands.spawn(button_node).id();
+        let button_text = commands.spawn(button_text_node).id();
+
+        commands.entity(button).push_children(&[button_text]);
+        commands.entity(container).push_children(&[button]);
+    }
 }
 
 
@@ -310,13 +321,15 @@ fn button_system(
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = Color::WHITE;
+                info!("button pressed : {:?}", text.sections[0].value);
             }
-            Interaction::Hovered => {}
+            Interaction::Hovered => {
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
