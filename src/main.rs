@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::math::*;
-//use bevy::render::render_resource::PrimitiveTopology;
-//use bevy::render::render_asset::RenderAssetUsages;
+use bevy::render::render_resource::PrimitiveTopology;
+use bevy::render::render_asset::RenderAssetUsages;
 use std::fs::File;
 use std::io::Read;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,9 @@ struct Sky {
     content: Vec<Constellation>,
 }
 
+#[derive(Resource, Default)]
+struct ShowConstellationEvent(bool);
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Constellation {
 	#[serde(rename = "Name")]
@@ -70,6 +73,9 @@ struct Star;
 struct AnswerButton;
 
 #[derive(Component)]
+struct ConstellationLine;
+
+#[derive(Component)]
 struct Player {
 	target_rotation: Option<Quat>,
 	target_cons_name: Option<String>,
@@ -79,12 +85,56 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Sky::default())
+		.insert_resource(ShowConstellationEvent::default())
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
         .add_systems(Startup, ui_setup)
+        .add_systems(Startup, spawn_line)
         .add_systems(Update, player_rotate)
         .add_systems(Update, button_system)
         .run();
+}
+
+fn spawn_line(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Create a material for the line
+    let line_material = materials.add(StandardMaterial {
+        emissive: LinearRgba::rgb(1.0, 0.5, 0.5), // Red color for the line
+        ..default()
+    });
+
+    // Define vertices for the line (two points in 3D space)
+    let vertices = vec![
+        [-1.0, -1.0, 0.0], // Starting point (origin)
+        [-1.0, 1.0, 0.0], // Ending point
+        [1.0, -1.0, 0.0], // Starting point (origin)
+        [1.0, 1.0, 0.0], // Ending point
+        [0.0, -1.0, 1.0], // Starting point (origin)
+        [0.0, 1.0, 1.0], // Ending point
+        [0.0, -1.0, -1.0], // Starting point (origin)
+        [0.0, 1.0, -1.0], // Ending point
+    ];
+
+    // Create the mesh and add the vertices
+    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+
+    // (Optional) Define indices if you want more complex line patterns
+    // mesh.set_indices(Some(Indices::U32(vec![0, 1])));
+
+    // Spawn the mesh with the line material in the scene
+    commands.spawn((
+	    PbrBundle {
+	        mesh: meshes.add(mesh),
+	        material: line_material.clone(),
+	        transform: Transform::default(), // Position and scale for the line
+	        ..default()
+	    },
+	 	ConstellationLine
+	));
 }
 
 fn star_setup(
@@ -129,18 +179,6 @@ fn star_setup(
             Star,
      	));
     }
-
-	// let line_mesh = meshes.add(Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD));
-	// 
- //    commands.spawn(
-	// 	PbrBundle {
- //           mesh: line_mesh.clone(),
- //           material: star_material.clone(),
- //           transform: Transform::from_xyz(2.0, 0.0, 0.0)
- //           	.with_scale(Vec3::splat(1.0)),
- //           ..default()
- //       }
- //   	);
 
     // camera
     commands.spawn((
@@ -272,12 +310,14 @@ fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
 fn player_rotate(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
+    mut player_query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
     sky: Res<Sky>, // Res to access the Sky resource
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
+	constellation_line_query : Query<(Entity, &ConstellationLine)>,
+	mut commands: Commands
 ) {
-    for (mut player, mut transform) in query.iter_mut() {
+    for (mut player, mut transform) in player_query.iter_mut() {
         // If the space key was just pressed
         if keys.just_pressed(KeyCode::Space) {
             if sky.content.len() >= 4 {
@@ -305,6 +345,10 @@ fn player_rotate(
                 for (mut bg_color, mut border_color) in &mut button_query {
                     *bg_color = NORMAL_BUTTON.into();
                     *border_color = Color::BLACK.into();
+                }
+
+                for (entity, _line) in constellation_line_query.iter() {
+                    commands.entity(entity).despawn();
                 }
             } else {
                 info!("Not enough constellations in the sky (need 4)");
