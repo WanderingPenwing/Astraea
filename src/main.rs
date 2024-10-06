@@ -8,6 +8,7 @@ use std::io::Read;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use rand::seq::SliceRandom;
+use rand::RngCore;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -210,20 +211,36 @@ fn player_rotate(
             info!("space pressed");
 
             // Select a random constellation from the Sky's content
-            if let Some(constellation) = sky.content.choose(&mut rand::thread_rng()) {
-                // Create a target rotation quaternion from the constellation's direction
-                let target_rotation = Quat::from_rotation_arc(Vec3::Z, celestial_to_cartesian(constellation.rah, constellation.dec));
+            if sky.content.len() >= 4 {
+                // Select 4 random constellations without repetition
+                let mut rng = rand::thread_rng();
+                let mut selected_constellations = sky.content.clone();
+                selected_constellations.shuffle(&mut rng);
+                let constellations = &selected_constellations[0..4]; // Select 4 constellations
+
+                // Assign the first one as the target
+                let target_index = rng.next_u32().rem_euclid(4) as usize;
+                info!("target const index : {}", target_index);
+                let target_constellation = &constellations[target_index];
+                let target_rotation = Quat::from_rotation_arc(
+                    Vec3::Z,
+                    celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
+                );
 
                 // Store the target rotation in the player component
                 player.target_rotation = Some(target_rotation);
-                player.target_cons_name = Some(constellation.name.clone());
+                player.target_cons_name = Some(target_constellation.name.clone());
 
-                
-                info!("constellation : {}", constellation.name);
+                info!("Target constellation: {}", target_constellation.name);
 
-                for mut text in &mut text_query {
-                    text.sections[0].value = constellation.name.clone();
+                // Iterate over the button text query and assign each a constellation name
+                for (i, mut text) in text_query.iter_mut().enumerate() {
+                    // Assign the name of one of the 4 selected constellations to each button
+                    text.sections[0].value = constellations[i].name.clone();
                 }
+            } else {
+                // Handle case where there are not enough constellations
+                info!("Not enough constellations in the sky (need 4)");
             }
         }
 
