@@ -1,7 +1,4 @@
-//! A simple 3D scene with light shining over a cube sitting on a plane.
-
 use bevy::prelude::*;
-//use bevy::render::*;
 use bevy::math::*;
 use std::fs::File;
 use std::io::Read;
@@ -9,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 use rand::seq::SliceRandom;
 use rand::RngCore;
+
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
+const RIGHT_BUTTON: Color = Color::srgb(0.15, 0.50, 0.15);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -23,30 +24,30 @@ struct StarData {
     #[serde(rename = "V")]
     v: String,
     #[serde(rename = "C")]
-    constellation: Option<String>,  // Optional field
+    constellation: Option<String>,  
     #[serde(rename = "F")]
-    f: Option<String>,              // Optional field
+    f: Option<String>,
     #[serde(rename = "B")]
-    bayer_designation: Option<String>, // Optional field
+    bayer_designation: Option<String>,
     #[serde(rename = "N")]
-    name: Option<String>,            // Optional field
+    name: Option<String>,
 }
 
 #[derive(Resource, Default)]
 struct Sky {
-    content: Vec<Constellation>, // or use a specific array size, e.g., [String; 10]
+    content: Vec<Constellation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Constellation {
 	#[serde(rename = "Name")]
-    name: String,           // Name of the constellation
+    name: String,
     #[serde(rename = "RAh")]
-    rah: f64,               // Right Ascension of the constellation in hours
+    rah: f64,
     #[serde(rename = "DEd")]
-    dec: f64,               // Declination of the constellation in degrees
-    stars: Vec<StarPos>,    // List of stars in the constellation
-    lines: Vec<[u32; 2]>,   // Star connection lines as pairs of star IDs
+    dec: f64,
+    stars: Vec<StarPos>,
+    lines: Vec<[u32; 2]>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -60,19 +61,6 @@ struct StarPos {
 	dec: f64,               
 }
 
-fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(Sky::default())
-        .add_systems(Startup, star_setup)
-        .add_systems(Startup, cons_setup)
-        .add_systems(Startup, ui_setup)
-        .add_systems(Update, player_rotate)
-        .add_systems(Update, button_system)
-        .run();
-}
-
-
 #[derive(Component)]
 struct Star;
 
@@ -83,6 +71,18 @@ struct AnswerButton;
 struct Player {
 	target_rotation: Option<Quat>,
 	target_cons_name: Option<String>,
+}
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(Sky::default())
+        .add_systems(Startup, star_setup)
+        .add_systems(Startup, cons_setup)
+        .add_systems(Startup, ui_setup)
+        .add_systems(Update, player_rotate)
+        .add_systems(Update, button_system)
+        .run();
 }
 
 fn star_setup(
@@ -141,10 +141,6 @@ fn star_setup(
 	));
 }
 
-fn cons_setup(mut sky: ResMut<Sky>) {
-	sky.content = get_cons().unwrap();
-}
-
 fn get_stars() -> std::io::Result<Vec<StarData>> {
     let mut file = File::open("data/stars.json")?;
     let mut data = String::new();
@@ -153,16 +149,6 @@ fn get_stars() -> std::io::Result<Vec<StarData>> {
     let stars: Vec<StarData> = serde_json::from_str(&data).unwrap();
 
     Ok(stars)
-}
-
-fn get_cons() -> std::io::Result<Vec<Constellation>> {
-	let mut file = File::open("data/constellations.json")?;
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
-
-    let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
-
-    Ok(sky_data)
 }
 
 fn star_position(star_data: StarData) -> Vec3 {
@@ -199,64 +185,21 @@ fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-fn player_rotate(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
-    sky: Res<Sky>, // Res to access the Sky resource
-    mut text_query: Query<&mut Text, With<AnswerButton>>,
-    mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
-) {
-    for (mut player, mut transform) in query.iter_mut() {
-        // If the space key was just pressed
-        if keys.just_pressed(KeyCode::Space) {
-            if sky.content.len() >= 4 {
-                let mut rng = rand::thread_rng();
-                let mut selected_constellations = sky.content.clone();
-                selected_constellations.shuffle(&mut rng);
-                let constellations = &selected_constellations[0..4];
-
-                let target_index = rng.next_u32().rem_euclid(4) as usize;
-                let target_constellation = &constellations[target_index];
-                let target_rotation = Quat::from_rotation_arc(
-                    Vec3::Z,
-                    celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
-                );
-
-                player.target_rotation = Some(target_rotation);
-                player.target_cons_name = Some(target_constellation.name.clone());
-
-                info!("Target constellation: {}", target_constellation.name);
-
-                for (i, mut text) in text_query.iter_mut().enumerate() {
-                    text.sections[0].value = constellations[i].name.clone();
-                }
-
-                for (mut bg_color, mut border_color) in &mut button_query {
-                    *bg_color = NORMAL_BUTTON.into();
-                    *border_color = Color::BLACK.into();
-                }
-            } else {
-                info!("Not enough constellations in the sky (need 4)");
-            }
-        }
-
-        if let Some(target_rotation) = player.target_rotation {
-            let current_rotation = transform.rotation;
-
-            transform.rotation = current_rotation.slerp(target_rotation, 0.1);
-
-            if transform.rotation.angle_between(target_rotation) < 0.01 {
-                player.target_rotation = None; 
-            }
-        }
-   }
+fn cons_setup(mut sky: ResMut<Sky>) {
+	sky.content = get_cons().unwrap();
 }
 
-const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
-const RIGHT_BUTTON: Color = Color::srgb(0.15, 0.50, 0.15);
+fn get_cons() -> std::io::Result<Vec<Constellation>> {
+	let mut file = File::open("data/constellations.json")?;
+    let mut data = String::new();
+    file.read_to_string(&mut data)?;
 
-fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
+
+    Ok(sky_data)
+}
+
+fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     // Create a container node that places its children (buttons) at the bottom of the screen
     let container_node = NodeBundle {
         style: Style {
@@ -313,7 +256,58 @@ fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     }
 }
 
+fn player_rotate(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
+    sky: Res<Sky>, // Res to access the Sky resource
+    mut text_query: Query<&mut Text, With<AnswerButton>>,
+    mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
+) {
+    for (mut player, mut transform) in query.iter_mut() {
+        // If the space key was just pressed
+        if keys.just_pressed(KeyCode::Space) {
+            if sky.content.len() >= 4 {
+                let mut rng = rand::thread_rng();
+                let mut selected_constellations = sky.content.clone();
+                selected_constellations.shuffle(&mut rng);
+                let constellations = &selected_constellations[0..4];
 
+                let target_index = rng.next_u32().rem_euclid(4) as usize;
+                let target_constellation = &constellations[target_index];
+                let target_rotation = Quat::from_rotation_arc(
+                    Vec3::Z,
+                    celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
+                );
+
+                player.target_rotation = Some(target_rotation);
+                player.target_cons_name = Some(target_constellation.name.clone());
+
+                info!("Target constellation: {}", target_constellation.name);
+
+                for (i, mut text) in text_query.iter_mut().enumerate() {
+                    text.sections[0].value = constellations[i].name.clone();
+                }
+
+                for (mut bg_color, mut border_color) in &mut button_query {
+                    *bg_color = NORMAL_BUTTON.into();
+                    *border_color = Color::BLACK.into();
+                }
+            } else {
+                info!("Not enough constellations in the sky (need 4)");
+            }
+        }
+
+        if let Some(target_rotation) = player.target_rotation {
+            let current_rotation = transform.rotation;
+
+            transform.rotation = current_rotation.slerp(target_rotation, 0.1);
+
+            if transform.rotation.angle_between(target_rotation) < 0.01 {
+                player.target_rotation = None; 
+            }
+        }
+   }
+}
 
 fn button_system(
     mut interaction_query: Query<
