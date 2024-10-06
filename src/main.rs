@@ -65,6 +65,8 @@ fn main() {
         .insert_resource(Sky::default())
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
+        .add_systems(Startup, ui_setup)
+        //.add_systems(Update, button_interaction)
         .add_systems(Update, player_rotate)
         .run();
 }
@@ -201,7 +203,7 @@ fn player_rotate(
     keys: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
     sky: Res<Sky>, // Res to access the Sky resource
-    mut commands: Commands,
+    //mut commands: Commands,
 ) {
     for (mut player, mut transform) in query.iter_mut() {
         // If the space key was just pressed
@@ -226,8 +228,6 @@ fn player_rotate(
             // Slerp between the current rotation and the target rotation
             transform.rotation = current_rotation.slerp(target_rotation, 0.1); // 0.1 is the interpolation factor
 
-            info!("rotating player");
-
             // Optionally, you could clear the target rotation when close enough
             if transform.rotation.angle_between(target_rotation) < 0.01 {
                 player.target_rotation = None; // Clear once the rotation is close enough
@@ -235,3 +235,52 @@ fn player_rotate(
         }
    }
 }
+
+fn ui_setup(
+	mut commands: Commands, 
+	//asset_server: Res<AssetServer>, 
+	//mut materials: ResMut<Assets<ColorMaterial>>
+) {
+	let text = "Hello world!";
+    
+    commands.spawn(
+        TextBundle::from_section(
+            text,
+            TextStyle {
+                font_size: 100.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        ) // Set the alignment of the Text
+        .with_text_justify(JustifyText::Center)
+        // Set the style of the TextBundle itself.
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        })
+    );
+}
+
+// System to handle button interaction
+// fn button_interaction(
+//     mut interaction_query: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
+// ) {
+//     for (interaction, mut color) in &mut interaction_query {
+//         match *interaction {
+//             Interaction::Pressed => {
+//                 *color = Color::srgb(0.35, 0.75, 0.35).into(); // Change color on click
+//                 info!("Button clicked!");
+//             }
+//             Interaction::Hovered => {
+//                 *color = Color::srgb(0.25, 0.25, 0.25).into(); // Change color on hover
+//             }
+//             Interaction::None => {
+//                 *color = Color::srgb(0.15, 0.15, 0.15).into(); // Default color
+//             }
+//         }
+//     }
+// }
+
+
