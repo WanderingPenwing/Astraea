@@ -78,20 +78,40 @@ struct AnswerButton;
 struct ConstellationLine;
 
 #[derive(Component)]
+struct StartMenu;
+
+#[derive(Component)]
+struct MainGame;
+
+#[derive(Component)]
+struct GameOver;
+
+#[derive(Component)]
 struct Player {
 	target_rotation: Option<Quat>,
 	target_cons_name: Option<String>,
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+enum GameState {
+    #[default]
+    Start,
+    Game,
+    End,
 }
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Sky::default())
+        .init_state::<GameState>()
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
-        .add_systems(Startup, ui_setup)
-        .add_systems(Update, player_rotate)
-        .add_systems(Update, button_system)
+        .add_systems(Update, start_menu_system.run_if(in_state(GameState::Start)))
+        .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
+        .add_systems(OnEnter(GameState::Game), game_ui_setup)
+        .add_systems(Update, player_input.run_if(in_state(GameState::Game)))
+        .add_systems(Update, game_buttons.run_if(in_state(GameState::Game)))
         .run();
 }
 
@@ -250,7 +270,7 @@ fn get_cons() -> std::io::Result<Vec<Constellation>> {
     Ok(sky_data)
 }
 
-fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
+fn game_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     // Create a container node that places its children (buttons) at the bottom of the screen
     let container_node = NodeBundle {
         style: Style {
@@ -307,7 +327,7 @@ fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     }
 }
 
-fn player_rotate(
+fn player_input(
     keys: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
     sky: Res<Sky>, // Res to access the Sky resource
@@ -384,7 +404,15 @@ fn player_rotate(
    }
 }
 
-fn button_system(
+fn start_menu_system(
+	keys: Res<ButtonInput<KeyCode>>,
+) {
+	if keys.just_pressed(KeyCode::Space) {
+		info!("start space");
+	}
+}
+
+fn game_buttons(
     mut interaction_query: Query<
         (
             &Interaction,
@@ -456,5 +484,10 @@ fn button_system(
 	}
 }
 
-
+// Generic system that takes a component as a parameter, and will despawn all entities with that component
+fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+    for entity in &to_despawn {
+        commands.entity(entity).despawn_recursive();
+    }
+}
 
