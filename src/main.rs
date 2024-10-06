@@ -75,6 +75,12 @@ struct Star;
 struct AnswerButton;
 
 #[derive(Component)]
+struct HealthLabel;
+
+#[derive(Component)]
+struct ScoreLabel;
+
+#[derive(Component)]
 struct ConstellationLine;
 
 #[derive(Component)]
@@ -115,6 +121,7 @@ fn main() {
         .add_systems(OnEnter(GameState::Game), game_ui_setup)
         .add_systems(Update, player_input.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_buttons.run_if(in_state(GameState::Game)))
+        .add_systems(Update, label_update.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
         .add_systems(OnEnter(GameState::End), end_setup)
         .add_systems(Update, end_buttons.run_if(in_state(GameState::End)))
@@ -402,7 +409,61 @@ fn game_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         commands.entity(button).push_children(&[button_text]);
         commands.entity(container).push_children(&[button]);
     }
+
+    // Label style for top corners
+    let label_style = Style {
+        position_type: PositionType::Absolute, // Absolute positioning
+        width: Val::Auto, // Auto width to fit text
+        height: Val::Auto, // Auto height to fit text
+        margin: UiRect::all(Val::Px(10.0)), // Margin around the text
+        ..default()
+    };
+
+    // Top left label
+    let top_left_label_node = TextBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            left: Val::Px(10.0),
+            top: Val::Px(10.0),
+            ..label_style.clone()
+        },
+        text: Text::from_section(
+            "* * *", // Text content
+            TextStyle {
+                // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 30.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        ),
+        ..default()
+    };
+
+    // Top right label
+    let top_right_label_node = TextBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            right: Val::Px(10.0),
+            top: Val::Px(10.0),
+            ..label_style.clone()
+        },
+        text: Text::from_section(
+            "0000", // Text content
+            TextStyle {
+                // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 30.0,
+                color: Color::WHITE,
+                ..default()
+            },
+        ),
+        ..default()
+    };
+
+    // Spawn the top left and top right labels
+    commands.spawn((top_left_label_node, MainGame, HealthLabel));
+    commands.spawn((top_right_label_node, MainGame, ScoreLabel));
 }
+
 
 fn choose_constellation(
 	player: &mut Player, 
@@ -511,6 +572,27 @@ fn start_menu_system(
 	    transform.rotation *= rotation; // Apply the rotation
 	}
 }
+
+fn label_update(
+    mut param_set: ParamSet<(
+        Query<&mut Text, With<HealthLabel>>,
+        Query<&mut Text, With<ScoreLabel>>,
+    )>,
+    mut player_query: Query<(&mut Player, &mut Transform)>,
+) {
+    if let Ok((player, _)) = player_query.get_single_mut() {
+        // Update the health label
+        if let Ok(mut health_text) = param_set.p0().get_single_mut() {
+            health_text.sections[0].value = "# ".repeat(player.health);
+        }
+
+        // Update the score label
+        if let Ok(mut score_text) = param_set.p1().get_single_mut() {
+            score_text.sections[0].value = format!("{}", player.score);
+        }
+    }
+}
+
 
 fn game_buttons(
     mut interaction_query: Query<
