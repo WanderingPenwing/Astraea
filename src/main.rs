@@ -1,5 +1,7 @@
 use bevy::prelude::*;
 use bevy::math::*;
+//use bevy::render::render_resource::PrimitiveTopology;
+//use bevy::render::render_asset::RenderAssetUsages;
 use std::fs::File;
 use std::io::Read;
 use serde::{Deserialize, Serialize};
@@ -128,6 +130,18 @@ fn star_setup(
      	));
     }
 
+	// let line_mesh = meshes.add(Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD));
+	// 
+ //    commands.spawn(
+	// 	PbrBundle {
+ //           mesh: line_mesh.clone(),
+ //           material: star_material.clone(),
+ //           transform: Transform::from_xyz(2.0, 0.0, 0.0)
+ //           	.with_scale(Vec3::splat(1.0)),
+ //           ..default()
+ //       }
+ //   	);
+
     // camera
     commands.spawn((
     	Camera3dBundle {
@@ -229,7 +243,7 @@ fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
     let container = commands.spawn(container_node).id();
 
     // Function to create buttons with different text
-    for i in 1..=4 {
+    for _i in 1..=4 {
         let button_node = ButtonBundle {
             style: button_style.clone(),
             border_color: BorderColor(Color::BLACK),
@@ -238,7 +252,7 @@ fn ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         };
 
         let button_text_node = TextBundle::from_section(
-            format!("Button {}", i),
+            "".to_string(),
             TextStyle {
                 //font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font
                 font_size: 15.0,
