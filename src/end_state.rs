@@ -1,8 +1,9 @@
 use bevy::prelude::*;
-use core::Player;
-use core::GameState;
+use crate::Player;
+use crate::GameState;
+use crate::GameOver;
 
-fn setup(
+pub fn setup(
 	mut commands: Commands,
 	_asset_server: Res<AssetServer>,
 	mut player_query: Query<&mut Player>
@@ -59,7 +60,7 @@ fn setup(
 	}
 }
 
-fn buttons(
+pub fn buttons(
 	keys: Res<ButtonInput<KeyCode>>,
 	mut game_state: ResMut<NextState<GameState>>
 ) {
