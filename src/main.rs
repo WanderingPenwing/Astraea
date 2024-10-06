@@ -98,6 +98,7 @@ struct Player {
 	target_cons_name: Option<String>,
 	score: usize,
 	health: usize,
+	thinking: bool,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -204,6 +205,7 @@ fn start_ui_setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
    	    	target_cons_name: None,
    	    	score: 0,
    	    	health: 3,
+   	    	thinking: true,
    	    },
    	    GameOver,
    	));
@@ -472,7 +474,12 @@ fn choose_constellation(
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	mut commands: Commands,
+    mut game_state: ResMut<NextState<GameState>>
 ) {
+	if player.health == 0 {
+		info!("dead");
+		game_state.set(GameState::End);
+	}
 	if sky.content.len() >= 4 {
         let mut rng = rand::thread_rng();
         let mut selected_constellations = sky.content.clone();
@@ -503,6 +510,8 @@ fn choose_constellation(
         for (entity, _line) in constellation_line_query.iter() {
             commands.entity(entity).despawn();
         }
+
+        player.thinking = true;
     } else {
         info!("Not enough constellations in the sky (need 4)");
     }
@@ -516,11 +525,12 @@ fn player_input(
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	commands: Commands,
+    game_state: ResMut<NextState<GameState>>
 ) {
     if let Ok((mut player, mut transform)) = player_query.get_single_mut() {
         // If the space key was just pressed
         if keys.just_pressed(KeyCode::Space) || player.target_cons_name.is_none() {
-            choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands);
+            choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state);
 			return
         }
 
@@ -609,39 +619,39 @@ fn game_buttons(
 	commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
-    sky: Res<Sky>,
-    mut game_state: ResMut<NextState<GameState>>
+    sky: Res<Sky>
 ) {
-	let mut pressed_button: Option<String> = None;
-	
-    for (
-        interaction,
-        _color,
-        _border_color,
-        children
-    ) in &mut interaction_query {
-        if *interaction == Interaction::Pressed {
-        	if let Ok(text) = text_query.get_mut(children[0]) {
-                pressed_button = Some(text.sections[0].value.clone());
-            }
-        }
-    }
+	if let Ok(mut player) = player_query.get_single_mut() {
+		if !player.thinking {
+			return
+		}
+		
+		let mut pressed_button: Option<String> = None;
+		
+	    for (
+	        interaction,
+	        _color,
+	        _border_color,
+	        children
+	    ) in &mut interaction_query {
+	        if *interaction == Interaction::Pressed {
+	        	if let Ok(text) = text_query.get_mut(children[0]) {
+	                pressed_button = Some(text.sections[0].value.clone());
+	            }
+	        }
+	    }
 
-	if let Some(selected_cons) = pressed_button {
-		if let Ok(mut player) = player_query.get_single_mut() {
+		if let Some(selected_cons) = pressed_button {
 		    if let Some(target_cons) = player.target_cons_name.clone() {
 		    	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
 		    	
 		    	if target_cons == selected_cons {
-		    		info!("success");
 		    		player.score += 100;
 		    	} else {
 		    		player.health -= 1;
-		    		if player.health == 0 {
-		    			info!("dead");
-		    			game_state.set(GameState::End);
-		    		}
 		    	}
+
+		    	player.thinking = false;
 
 		  		for (
 			        _interaction,
