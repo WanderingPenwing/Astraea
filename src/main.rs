@@ -113,19 +113,28 @@ fn spawn_cons_lines(
     info!("show : {}", target_constellation.name);
 
     // Define vertices for the line (two points in 3D space)
-    let vertices = vec![
-        [-1.0, -1.0, 0.0], // Starting point (origin)
-        [-1.0, 1.0, 0.0], // Ending point
-        [1.0, -1.0, 0.0], // Starting point (origin)
-        [1.0, 1.0, 0.0], // Ending point
-        [0.0, -1.0, 1.0], // Starting point (origin)
-        [0.0, 1.0, 1.0], // Ending point
-        [0.0, -1.0, -1.0], // Starting point (origin)
-        [0.0, 1.0, -1.0], // Ending point
-    ];
+    // let vertices = vec![
+    //     [-1.0, -1.0, 0.0], // Starting point (origin)
+    //     [-1.0, 1.0, 0.0], // Ending point
+    //     [1.0, -1.0, 0.0], // Starting point (origin)
+    //     [1.0, 1.0, 0.0], // Ending point
+    //     [0.0, -1.0, 1.0], // Starting point (origin)
+    //     [0.0, 1.0, 1.0], // Ending point
+    //     [0.0, -1.0, -1.0], // Starting point (origin)
+    //     [0.0, 1.0, -1.0], // Ending point
+    // ];
+
+    let mut vertices : Vec<Vec3> = vec![];
+
+    for line in target_constellation.lines {
+    	for star_index in line {
+    		let star = target_constellation.stars[star_index as usize].clone();
+    		vertices.push(celestial_to_cartesian(star.rah, star.dec));
+    	}
+    }
 
     // Create the mesh and add the vertices
-    let mut mesh = Mesh::new(PrimitiveTopology::LineStrip, RenderAssetUsages::RENDER_WORLD);
+    let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
 
     // (Optional) Define indices if you want more complex line patterns
@@ -336,7 +345,7 @@ fn player_rotate(
                 let target_constellation = &constellations[target_index];
                 let target_rotation = Quat::from_rotation_arc(
                     Vec3::Z,
-                    celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
+                    -celestial_to_cartesian(target_constellation.rah, target_constellation.dec),
                 );
 
                 player.target_rotation = Some(target_rotation);
@@ -359,6 +368,24 @@ fn player_rotate(
             } else {
                 info!("Not enough constellations in the sky (need 4)");
             }
+        }
+
+        let mut rotation = Quat::IDENTITY;
+        
+        // Rotate left when the A key is pressed
+        if keys.pressed(KeyCode::KeyA) {
+            rotation *= Quat::from_rotation_y((PI / 60.0) as f32); // Rotate by 3 degrees (PI/60 radians)
+        }
+
+        // Rotate right when the D key is pressed
+        if keys.pressed(KeyCode::KeyD) {
+            rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); // Rotate by -3 degrees
+        }
+
+        // Apply the rotation to the transform
+        if rotation != Quat::IDENTITY {
+            transform.rotation *= rotation; // Apply the rotation
+            player.target_rotation = None;
         }
 
         if let Some(target_rotation) = player.target_rotation {
