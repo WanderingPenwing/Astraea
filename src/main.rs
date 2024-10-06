@@ -280,9 +280,10 @@ fn ui_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let button_text_node = TextBundle::from_section(
             format!("Button {}", i),
             TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font
-                font_size: 40.0,
+                //font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font
+                font_size: 15.0,
                 color: Color::srgb(0.9, 0.9, 0.9),
+                ..default()
             },
         );
 
