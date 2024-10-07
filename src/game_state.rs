@@ -19,7 +19,6 @@ use crate::spawn_cons_lines;
 use crate::NORMAL_BUTTON;
 use crate::RIGHT_BUTTON;
 use crate::WRONG_BUTTON;
-use crate::SKY_RADIUS;
 
 #[derive(Component)]
 pub struct AnswerButton;
@@ -278,87 +277,77 @@ pub fn player_interact(
 
 pub fn player_mouse_move (
     buttons: Res<ButtonInput<MouseButton>>,
-    mut player_query: Query<(&mut Player, &mut Transform)>,
-    camera_query: Query<(&Camera, &GlobalTransform), With<Player>>,
+    mut player_query: Query<(&mut Player, &Camera, &mut GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
+    // debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
 ) {
-    let Ok((mut player, mut player_transform)) = player_query.get_single_mut() else {
-    	return;
-    };
-    
-    if !buttons.pressed(MouseButton::Left) {
-    	player.dragging_pos = None;
-    	return
-    }
-    
-   	let window = window_query.single();
-	let Some(cursor_position) = window.cursor_position() else {
-		return;
+	let Ok((mut player, camera, global_transform)) = player_query.get_single_mut() else {
+	    return;
 	};
-    
-    let (camera, camera_transform) = camera_query.single();
-    
-  	let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
-        return;
-    };
+	let local_transform = &global_transform.compute_transform();
 
-    let new_global_cursor = ray.get_point(SKY_RADIUS);
-
-    let Some(old_global_cursor) = player.dragging_pos else {
-    	player.dragging_pos = Some(new_global_cursor);
-    	return;
-    };
-
-    
-	debug_vector(debug_line_query, new_global_cursor, old_global_cursor - new_global_cursor);
-
-	if old_global_cursor.distance(new_global_cursor) < f32::EPSILON {
-		return;
+	// Check if left mouse button is pressed
+	if !buttons.pressed(MouseButton::Left) {
+	    player.dragging_pos = None;
+	    return;
 	}
-	
-	let delta_rotation = rotate_to_align(old_global_cursor, new_global_cursor);
-	
-	player_transform.rotation = delta_rotation * player_transform.rotation;
 
+	let window = window_query.single();
 
-	
-	player.dragging_pos = Some(new_global_cursor);
-// 	let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
-//         return;
-//     };
-// 
-//     player.dragging_pos = Some(ray.get_point(SKY_RADIUS));
+	let Some(new_cursor) = window.cursor_position() else {
+	    return;
+	};
+
+	let Some(old_cursor) = player.dragging_pos else {
+	    player.dragging_pos = Some(new_cursor);
+	    return;
+	};
+
+	// Check if cursor has moved significantly
+	if old_cursor.distance(new_cursor) < 3.0 {
+	    return;
+	}
+
+	// Raycasting from the camera based on the cursor positions
+	let Some(old_ray) = camera.viewport_to_world(&global_transform, old_cursor) else {
+	    return;
+	};
+
+	let Some(new_ray) = camera.viewport_to_world(&global_transform, new_cursor) else {
+	    return;
+	};
+
+	let delta_rotation = rotate_to_align(new_ray, old_ray); // oposite direction and never stop
+
+	//debug_vector(debug_line_query, new_ray.get_point(SKY_RADIUS), axis*10.0);
+
+	player.target_rotation = Some(delta_rotation * local_transform.rotation );
+	player.dragging_pos = Some(new_cursor);
 }
 
-fn rotate_vector_with_quaternion(v: Vec3, q: Quat) -> Vec3 {
-    // Convert the vector to a quaternion (0, v.x, v.y, v.z)
-    let vector_as_quaternion = Quat::from_xyzw(0.0, v.x, v.y, v.z);
+
+fn rotate_to_align(ray_1: Ray3d, ray_2: Ray3d) -> Quat {
+    // Step 1: Get the direction vectors from the rays
+    let pos_1 = ray_1.get_point(1.0);
+    let pos_2 = ray_2.get_point(1.0);
     
-    // Apply the rotation: q * vector * q^-1
-    let rotated_vector = q * vector_as_quaternion * q.conjugate();
-    
-    // Extract the rotated vector from the quaternion
-    Vec3::new(rotated_vector.x, rotated_vector.y, rotated_vector.z)
-}
+    // Compute direction vectors
+    let dir_1 = (pos_1 - Vec3::ZERO).normalize(); // Change Vec3::ZERO to the origin or a relevant point
+    let dir_2 = (pos_2 - Vec3::ZERO).normalize();
 
-fn rotate_to_align(old_pos: Vec3, new_pos: Vec3) -> Quat {
-    // Step 1: Normalize the input vectors (assuming they're not already normalized)
-    let old_pos_normalized = old_pos.normalize();
-    let new_pos_normalized = new_pos.normalize();
+    // Step 2: Compute the axis of rotation (cross product)
+    let axis_of_rotation = dir_1.cross(dir_2).normalize();
 
-    // Step 2: Compute the axis of rotation (cross product between old and new positions)
-    let axis_of_rotation = old_pos_normalized.cross(new_pos_normalized).normalize();
-
+    // Check if vectors are parallel
     if axis_of_rotation.length_squared() < f32::EPSILON {
         return Quat::IDENTITY;
     }
 
     // Step 3: Compute the angle of rotation (dot product and arccosine)
-    //let dot_product = old_pos_normalized.dot(new_pos_normalized);
-    let dot_product = new_pos_normalized.dot(old_pos_normalized);
-    let angle_of_rotation = dot_product.acos(); // This gives us the angle in radians
+    let dot_product = dir_1.dot(dir_2).clamp(-1.0, 1.0); // Clamp the value to prevent NaN from acos
+    let angle_of_rotation = dot_product.acos() * 6.0; // Ensure the angle is in radians
 
+    // Handle any potential invalid angle values
     if angle_of_rotation.is_nan() || angle_of_rotation.is_infinite() {
         return Quat::IDENTITY;
     }
@@ -367,26 +356,26 @@ fn rotate_to_align(old_pos: Vec3, new_pos: Vec3) -> Quat {
     Quat::from_axis_angle(axis_of_rotation, angle_of_rotation)
 }
 
-fn debug_vector(
-	mut debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
-	pos: Vec3, vec: Vec3
-) {
-	let Ok(mut debug_transform) = debug_line_query.get_single_mut() else {
-		info!("no debug line");
-		return;
-	};
-	
-    let vec_norm = vec.length();
-
-    debug_transform.scale = Vec3::new(vec_norm, 1.0, 1.0);
-
-    debug_transform.translation = pos;
-
-    if vec_norm > f32::EPSILON {
-        let rotation = Quat::from_rotation_arc(Vec3::X, vec.normalize());
-        debug_transform.rotation = rotation;
-    }
-}
+// fn debug_vector(
+// 	mut debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
+// 	pos: Vec3, vec: Vec3
+// ) {
+// 	let Ok(mut debug_transform) = debug_line_query.get_single_mut() else {
+// 		info!("no debug line");
+// 		return;
+// 	};
+// 	
+//     let vec_norm = vec.length();
+// 
+//     debug_transform.scale = Vec3::new(vec_norm, 1.0, 1.0);
+// 
+//     debug_transform.translation = pos;
+// 
+//     if vec_norm > f32::EPSILON {
+//         let rotation = Quat::from_rotation_arc(Vec3::X, vec.normalize());
+//         debug_transform.rotation = rotation;
+//     }
+// }
 
 
 pub fn ui_labels(
@@ -556,3 +545,5 @@ fn constellation_center(target_constellation: Constellation) -> Quat {
         -mean_pos*(1.0/target_constellation.stars.len() as f32),
     )
 }
+
+

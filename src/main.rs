@@ -90,7 +90,7 @@ struct Player {
 	score: usize,
 	health: usize,
 	state: PlayerState,
-	dragging_pos: Option<Vec3>,
+	dragging_pos: Option<Vec2>,
 }
 
 impl Default for Player {
