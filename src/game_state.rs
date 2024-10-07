@@ -33,6 +33,8 @@ pub struct HintLabel;
 
 pub fn setup(
 	mut commands: Commands, 
+	mut game_data: ResMut<GameData>,
+	sky: Res<Sky>,
 ) {
     let container_node = NodeBundle {
         style: Style {
@@ -162,6 +164,9 @@ pub fn setup(
     let hint_label = commands.spawn((hint_label_node, MainGame, HintLabel)).id();
 
     commands.entity(centered_container).push_children(&[hint_label]);
+
+	*game_data = GameData::default();
+	game_data.content = sky.as_string();
 }
 
 
@@ -330,9 +335,11 @@ pub fn ui_buttons(
    		game_data.health -= 1;
    	}
 
+   	game_data.content.retain(|x| x != &target_cons);
+
    	game_data.state = PlayerState::Answered;
 
- 		for (
+ 	for (
         _interaction,
         mut color,
         mut border_color,
@@ -369,37 +376,38 @@ fn choose_constellation(
 	if game_data.health == 0 {
 		game_state.set(GameState::End);
 	}
-	if sky.content.len() >= 4 {
-        let mut rng = rand::thread_rng();
-        let mut selected_constellations = sky.content.clone();
-        selected_constellations.shuffle(&mut rng);
-        let constellations = &selected_constellations[0..4];
 
-        let target_index = rng.next_u32().rem_euclid(4) as usize;
-        let target_constellation = &constellations[target_index];
+	if game_data.content.len() < 4 {
+		game_state.set(GameState::End);
+	}
+	
+    let mut rng = rand::thread_rng();
+    let mut cons_names = game_data.content.clone();
+    cons_names.shuffle(&mut rng);
+    let selected_cons_names = &cons_names[0..4];
 
-        player.target_rotation = Some(constellation_center(target_constellation.clone()));
-        game_data.target_cons_name = Some(target_constellation.name.clone());
+    let target_index = rng.next_u32().rem_euclid(4) as usize;
+    let target_constellation = sky.get_constellation(&selected_cons_names[target_index]);
 
-        info!("Target constellation: {}", target_constellation.name);
+    player.target_rotation = Some(constellation_center(target_constellation.clone()));
+    game_data.target_cons_name = Some(target_constellation.name.clone());
 
-        for (i, mut text) in text_query.iter_mut().enumerate() {
-            text.sections[0].value = constellations[i].name.clone();
-        }
+    info!("Target constellation: {}", target_constellation.name);
 
-        for (mut bg_color, mut border_color) in &mut button_query {
-            *bg_color = NORMAL_BUTTON.into();
-            *border_color = Color::BLACK.into();
-        }
-
-        for (entity, _line) in constellation_line_query.iter() {
-            commands.entity(entity).despawn();
-        }
-
-        game_data.state = PlayerState::Playing;
-    } else {
-        info!("Not enough constellations in the sky (need 4)");
+    for (i, mut text) in text_query.iter_mut().enumerate() {
+        text.sections[0].value = selected_cons_names[i].clone();
     }
+
+    for (mut bg_color, mut border_color) in &mut button_query {
+        *bg_color = NORMAL_BUTTON.into();
+        *border_color = Color::BLACK.into();
+    }
+
+    for (entity, _line) in constellation_line_query.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    game_data.state = PlayerState::Playing;
 }
 
 fn constellation_center(target_constellation: Constellation) -> Quat {

@@ -3,7 +3,6 @@ use std::f64::consts::PI;
 //use bevy::input::mouse::MouseMotion;
 use crate::GameState;
 use crate::StartMenu;
-use crate::GameData;
 use crate::Player;
 
 #[derive(Component)]
@@ -19,7 +18,6 @@ pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 
 pub fn setup(
 	mut commands: Commands,
-	mut game_data: ResMut<GameData>
 ) {
     let container_node = NodeBundle {
         style: Style {
@@ -63,8 +61,6 @@ pub fn setup(
     let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
 
     commands.entity(container).push_children(&[top_text, bottom_text]);
-
-	*game_data = GameData::default();
 }
 
 pub fn player_interact(

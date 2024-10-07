@@ -41,30 +41,28 @@ struct StarData {
     name: Option<String>,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 struct Sky {
     content: Vec<Constellation>,
 }
 
-#[derive(Resource)]
-struct GameData {
-    seen: Vec<Constellation>,
-	score: usize,
-	health: usize,
-	state: PlayerState,
-	target_cons_name: Option<String>,
-}
+impl Sky {
+	fn as_string(&self) -> Vec<String> {
+		let mut cons_names : Vec<String> = vec![];
+		for cons in self.content.clone() {
+			cons_names.push(cons.name.clone());
+		}
+		return cons_names;
+	}
 
-impl Default for GameData {
-    fn default() -> Self {
-         GameData {
-         	seen: vec![],
-   	    	score: 0,
-   	    	health: 3,
-   	    	state: PlayerState::Playing,
-   	    	target_cons_name: None,
-   	    }
-    }
+	fn get_constellation(&self, name: &str) -> Constellation {
+		for cons in self.content.clone() {
+			if &cons.name == name {
+				return cons;
+			}
+		}
+		return self.content[0].clone();
+	} 
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -109,6 +107,27 @@ struct GameOver;
 struct Player {
 	target_rotation: Option<Quat>,
 	dragging_pos: Option<Vec2>,
+}
+
+#[derive(Resource)]
+struct GameData {
+    content: Vec<String>,
+	score: usize,
+	health: usize,
+	state: PlayerState,
+	target_cons_name: Option<String>,
+}
+
+impl Default for GameData {
+    fn default() -> Self {
+         GameData {
+         	content: vec![],
+   	    	score: 0,
+   	    	health: 3,
+   	    	state: PlayerState::Playing,
+   	    	target_cons_name: None,
+   	    }
+    }
 }
 
 #[derive(Default, PartialEq)]
