@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use bevy::math::*;
 use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
-use std::fs::File;
-use std::io::Read;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
 
@@ -138,9 +136,8 @@ fn spawn_cons_lines(
     sky: Res<Sky>,
    	target_constellation_name: String,
 ) {
-    // Create a material for the line
     let line_material = materials.add(StandardMaterial {
-        emissive: LinearRgba::rgb(0.5, 0.5, 1.0), // Red color for the line
+        emissive: LinearRgba::rgb(0.5, 0.5, 1.0),
         ..default()
     });
 
@@ -160,7 +157,6 @@ fn spawn_cons_lines(
     	}
     }
 
-    // Create the mesh and add the vertices
     let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
     
@@ -168,7 +164,7 @@ fn spawn_cons_lines(
 	    PbrBundle {
 	        mesh: meshes.add(mesh),
 	        material: line_material.clone(),
-	        transform: Transform::default(), // Position and scale for the line
+	        transform: Transform::default(),
 	        ..default()
 	    },
 	 	ConstellationLine,
@@ -181,14 +177,12 @@ fn star_setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // plane
     commands.insert_resource(ClearColor(Color::BLACK));
 
 	let stars = get_stars().unwrap();
 
-    //let mesh = meshes.add(Cuboid::new(star_size, star_size, star_size));
 	let star_mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
-    //let material = materials.add(Color::srgb(1.0, 1.0, 1.0));
+	
 	let star_material = materials.add(StandardMaterial {
             emissive: LinearRgba::rgb(1.0, 1.0, 1.0),
             ..default()
@@ -218,9 +212,7 @@ fn star_setup(
 }
 
 fn get_stars() -> std::io::Result<Vec<StarData>> {
-    let mut file = File::open("data/stars.json")?;
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
+    let data = include_str!("../data/stars.json");
 
     let stars: Vec<StarData> = serde_json::from_str(&data).unwrap();
 
@@ -266,9 +258,7 @@ fn cons_setup(mut sky: ResMut<Sky>) {
 }
 
 fn get_cons() -> std::io::Result<Vec<Constellation>> {
-	let mut file = File::open("data/constellations.json")?;
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
+	let data = include_str!("../data/constellations.json");
 
     let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
 

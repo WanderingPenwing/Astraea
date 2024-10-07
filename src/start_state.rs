@@ -15,51 +15,44 @@ pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 }
 
 pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
-    // Create a container node that places its children (text areas) in a vertical column and centers them
     let container_node = NodeBundle {
         style: Style {
-            width: Val::Percent(100.0),  // Full width of the screen
-            height: Val::Percent(100.0), // Full height of the screen
-            flex_direction: FlexDirection::Column, // Arrange children in a column (vertical)
-            justify_content: JustifyContent::Center, // Center vertically
-            align_items: AlignItems::Center, // Center horizontally
+            width: Val::Percent(100.0), 
+            height: Val::Percent(100.0),
+            flex_direction: FlexDirection::Column, 
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         },
         ..default()
     };
 
-    // Create the container for the text areas
     let container = commands.spawn(container_node).id();
 
-    // TextStyle for the top text (larger font)
     let top_text_style = TextStyle {
-        font_size: 50.0, // Larger font size
+        font_size: 50.0, 
         color: Color::WHITE,
         // font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font if needed
         ..default()
     };
 
-    // TextStyle for the bottom text (smaller font)
     let bottom_text_style = TextStyle {
-        font_size: 30.0, // Smaller font size
+        font_size: 30.0, 
         color: Color::WHITE,
         // font: asset_server.load("fonts/FiraSans-Regular.ttf"), // Load font if needed
         ..default()
     };
 
-    // TextBundle for the top text
     let top_text_node = TextBundle::from_section(
-        "Astraea", // Text for the top section
+        "Astraea", 
         top_text_style,
     );
 
-    // TextBundle for the bottom text
     let bottom_text_node = TextBundle::from_section(
-        "Press Space to Begin", // Text for the bottom section
+        "Press Space to Begin", 
         bottom_text_style,
     );
 
-    // Spawn the text nodes and add them as children to the container
     let top_text = commands.spawn((top_text_node, StartMenu)).id();
     let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
 
@@ -94,8 +87,8 @@ pub fn player_interact(
 
 	if let Ok((_player, mut transform)) = player_query.get_single_mut() {
 		let mut rotation = Quat::IDENTITY;
-		rotation *= Quat::from_rotation_y((PI / 6000.0) as f32); // Rotate by 3 degrees (PI/60 radians)
-	    rotation *= Quat::from_rotation_x((-PI / 2000.0) as f32); // Rotate by -3 degrees
-	    transform.rotation *= rotation; // Apply the rotation
+		rotation *= Quat::from_rotation_y((PI / 6000.0) as f32);
+	    rotation *= Quat::from_rotation_x((-PI / 2000.0) as f32);
+	    transform.rotation *= rotation; 
 	}
 }

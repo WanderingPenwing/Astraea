@@ -30,35 +30,31 @@ pub struct ScoreLabel;
 pub struct HintLabel;
 
 pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
-    // Create a container node that places its children (buttons) at the bottom of the screen
     let container_node = NodeBundle {
         style: Style {
-            width: Val::Percent(100.0), // Full width of the screen
-            height: Val::Percent(100.0), // Full height of the screen
-            flex_direction: FlexDirection::Row, // Arrange children in a row (horizontal)
-            justify_content: JustifyContent::Center, // Center horizontally
-            align_items: AlignItems::FlexEnd, // Place at the bottom of the screen
-            padding: UiRect::all(Val::Px(10.0)), // Optional padding
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0), 
+            flex_direction: FlexDirection::Row,
+            justify_content: JustifyContent::Center, 
+            align_items: AlignItems::FlexEnd,
+            padding: UiRect::all(Val::Px(10.0)),
             ..default()
         },
         ..default()
     };
 
-    // Button style (same for all buttons)
     let button_style = Style {
         width: Val::Px(150.0),
         height: Val::Px(65.0),
-        margin: UiRect::all(Val::Px(10.0)), // Add margin between buttons
-        justify_content: JustifyContent::Center, // Center text horizontally
-        align_items: AlignItems::Center, // Center text vertically
+        margin: UiRect::all(Val::Px(10.0)), 
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center, 
         border: UiRect::all(Val::Px(5.0)),
         ..default()
     };
 
-    // Create the container for the buttons
     let container = commands.spawn(container_node).id();
 
-    // Function to create buttons with different text
     for _i in 1..=4 {
         let button_node = ButtonBundle {
             style: button_style.clone(),
@@ -77,7 +73,6 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
             },
         );
 
-        // Spawn the button and its text as children of the container
         let button = commands.spawn((button_node, MainGame)).id();
         let button_text = commands.spawn((button_text_node, AnswerButton, MainGame)).id();
 
@@ -85,12 +80,11 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         commands.entity(container).push_children(&[button]);
     }
 
-    // Label style for top corners
     let label_style = Style {
-        position_type: PositionType::Absolute, // Absolute positioning
-        width: Val::Auto, // Auto width to fit text
-        height: Val::Auto, // Auto height to fit text
-        margin: UiRect::all(Val::Px(10.0)), // Margin around the text
+        position_type: PositionType::Absolute,
+        width: Val::Auto, 
+        height: Val::Auto, 
+        margin: UiRect::all(Val::Px(10.0)), 
         ..default()
     };
 
@@ -103,7 +97,7 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
             ..label_style.clone()
         },
         text: Text::from_section(
-            "* * *", // Text content
+            "* * *", 
             TextStyle {
                 // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 30.0,
@@ -123,7 +117,7 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
             ..label_style.clone()
         },
         text: Text::from_section(
-            "0", // Text content
+            "0",
             TextStyle {
                 // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 30.0,
@@ -134,14 +128,13 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         ..default()
     };
 
-    // Centered container for the "Hint" label
     let centered_container_node = NodeBundle {
         style: Style {
             position_type: PositionType::Absolute,
-            width: Val::Percent(100.0), // Full width
-            top: Val::Px(20.0),         // Positioned at the top
-            justify_content: JustifyContent::Center, // Center horizontally
-            align_items: AlignItems::Center,         // Center vertically
+            width: Val::Percent(100.0),
+            top: Val::Px(20.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         },
         ..default()
@@ -158,11 +151,9 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
         },
     );
     
-    // Spawn the top left and top right labels
     commands.spawn((top_left_label_node, MainGame, HealthLabel));
     commands.spawn((top_right_label_node, MainGame, ScoreLabel));
 
-	// Create a parent container and then spawn the hint label inside it
     let centered_container = commands.spawn(centered_container_node).id();
     let hint_label = commands.spawn((hint_label_node, MainGame, HintLabel)).id();
 
@@ -173,10 +164,10 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
 pub fn player_interact(
     keys: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Player, &mut Transform)>, // Query to get Player and Transform
-    sky: Res<Sky>, // Res to access the Sky resource
+    mut player_query: Query<(&mut Player, &mut Transform)>, 
+    sky: Res<Sky>, 
     text_query: Query<&mut Text, With<AnswerButton>>,
-    button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
+    button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	commands: Commands,
     game_state: ResMut<NextState<GameState>>,
@@ -184,7 +175,7 @@ pub fn player_interact(
     materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if let Ok((mut player, mut transform)) = player_query.get_single_mut() {
-        // If the space key was just pressed
+    
         if keys.just_pressed(KeyCode::Space) || player.target_cons_name.is_none() {
             choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state);
 			return
@@ -192,14 +183,12 @@ pub fn player_interact(
 
         let mut rotation = Quat::IDENTITY;
         
-        // Rotate left when the A key is pressed
         if keys.pressed(KeyCode::KeyA) {
-            rotation *= Quat::from_rotation_y((PI / 60.0) as f32); // Rotate by 3 degrees (PI/60 radians)
+            rotation *= Quat::from_rotation_y((PI / 60.0) as f32); 
         }
 
-        // Rotate right when the D key is pressed
         if keys.pressed(KeyCode::KeyD) {
-            rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); // Rotate by -3 degrees
+            rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); 
         }
 
         if keys.pressed(KeyCode::KeyI) && player.state == PlayerState::Playing {
@@ -209,9 +198,8 @@ pub fn player_interact(
     		}
  		}
 
-        // Apply the rotation to the transform
         if rotation != Quat::IDENTITY {
-            transform.rotation *= rotation; // Apply the rotation
+            transform.rotation *= rotation; 
             player.target_rotation = None;
         }
 
@@ -238,12 +226,10 @@ pub fn ui_labels(
     mut player_query: Query<(&mut Player, &mut Transform)>,
 ) {
     if let Ok((player, _)) = player_query.get_single_mut() {
-        // Update the health label
         if let Ok(mut health_text) = param_set.p0().get_single_mut() {
             health_text.sections[0].value = "# ".repeat(player.health);
         }
 
-        // Update the score label
         if let Ok(mut score_text) = param_set.p1().get_single_mut() {
             score_text.sections[0].value = format!("{}", player.score);
         }
@@ -343,15 +329,14 @@ pub fn ui_buttons(
 
 fn choose_constellation(
 	player: &mut Player, 
-	sky: Res<Sky>, // Res to access the Sky resource
+	sky: Res<Sky>, 
     mut text_query: Query<&mut Text, With<AnswerButton>>,
-    mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, // Query to reset button colors
+    mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	mut commands: Commands,
     mut game_state: ResMut<NextState<GameState>>
 ) {
 	if player.health == 0 {
-		info!("dead");
 		game_state.set(GameState::End);
 	}
 	if sky.content.len() >= 4 {
