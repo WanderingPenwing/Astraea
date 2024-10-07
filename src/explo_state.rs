@@ -3,6 +3,13 @@ use bevy::prelude::*;
 use crate::Player;
 use crate::GameState;
 
+// pub fn setup (
+// 	
+// ) {
+// 	for 
+// 	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+// }
+
 pub fn player_mouse_move (
     buttons: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<(&mut Player, &Camera, &mut GlobalTransform)>,

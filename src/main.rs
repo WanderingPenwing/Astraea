@@ -4,6 +4,7 @@ use bevy::render::render_resource::PrimitiveTopology;
 use bevy::render::render_asset::RenderAssetUsages;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::PI;
+use std::f32::consts::E;
 
 mod end_state;
 mod start_state;
@@ -20,6 +21,7 @@ const EASYNESS: f32 = 1.5;
 const MAX_STAR_SIZE: f32 = 0.63;
 const STAR_SCALE: f32 = 0.02;
 const SKY_RADIUS: f32 = 4.0;
+const CONS_VIEW_RADIUS: f32 = 1.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -94,7 +96,10 @@ struct StarPos {
 struct Star;
 
 #[derive(Component)]
-struct ConstellationLine;
+struct ConstellationModel {
+	name: String,
+	center: Vec3,
+}
 
 #[derive(Component)]
 struct StartMenu;
@@ -137,13 +142,46 @@ fn main() {
         .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
 		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
 		.add_systems(Update, explo_state::player_interact.run_if(in_state(GameState::Explo))) 
-        .add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
+		.add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
+        .add_systems(Update, constellation_opacity.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
         .add_systems(OnEnter(GameState::End), end_state::setup)
         .add_systems(Update, end_state::player_interact.run_if(in_state(GameState::End)))
         .add_systems(OnExit(GameState::End), despawn_screen::<GameOver>)
         .run();
+}
+
+fn constellation_opacity(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    player_query: Query<(&Player, &Camera, &GlobalTransform)>,
+    constellation_query: Query<(&Handle<StandardMaterial>, &ConstellationModel)>, // Query all constellation lines
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+) {
+	let (_player, camera, global_transform) = player_query.single();
+	let window = window_query.single();
+	let Some(cursor_position) = window.cursor_position() else {
+		return;
+	};
+
+	let Some(mouse_ray) = camera.viewport_to_world(&global_transform, cursor_position) else {
+	    return;
+	};
+
+	let cursor_global_pos = mouse_ray.get_point(1.0);
+
+	
+    for (material_handle, constellation_model) in constellation_query.iter() {
+        let Some(material) = materials.get_mut(material_handle) else {
+        	continue;
+        };
+
+        let distance = constellation_model.center.distance(cursor_global_pos);
+        let exponent = -(2.0 * distance / CONS_VIEW_RADIUS).powi(2);
+        let opa = E.powf(exponent);
+        
+        material.base_color = Color::srgba(opa, opa, opa, opa); // Set the alpha channel to adjust transparency
+    }
 }
 
 fn spawn_cons_lines(
@@ -155,6 +193,7 @@ fn spawn_cons_lines(
 ) {
     let line_material = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(0.5, 0.5, 1.0),
+        alpha_mode: AlphaMode::Blend,
         ..default()
     });
 
@@ -167,12 +206,19 @@ fn spawn_cons_lines(
 
     let mut vertices : Vec<Vec3> = vec![];
 
+    let mut avg_pos : Vec3 = Vec3::ZERO;
+    let num_lines = target_constellation.lines.len();
+
     for line in target_constellation.lines {
     	for star_index in line {
     		let star = target_constellation.stars[star_index as usize].clone();
-    		vertices.push(celestial_to_cartesian(star.rah, star.dec));
+    		let star_pos = celestial_to_cartesian(star.rah, star.dec);
+    		vertices.push(star_pos);
+    		avg_pos += star_pos;
     	}
     }
+
+    avg_pos /= 2.0 * num_lines as f32;
 
     let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
@@ -184,7 +230,10 @@ fn spawn_cons_lines(
 	        transform: Transform::default(),
 	        ..default()
 	    },
-	 	ConstellationLine,
+	 	ConstellationModel {
+	 		name: target_constellation_name,
+	 		center: avg_pos,
+	 	},
 	 	MainGame
 	));
 }

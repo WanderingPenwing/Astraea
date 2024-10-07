@@ -7,7 +7,7 @@ use crate::GameState;
 use crate::MainGame;
 use crate::Sky;
 use crate::Constellation;
-use crate::ConstellationLine;
+use crate::ConstellationModel;
 
 use crate::celestial_to_cartesian;
 use crate::spawn_cons_lines;
@@ -205,7 +205,7 @@ pub fn player_interact(
     sky: Res<Sky>, 
     text_query: Query<&mut Text, With<AnswerButton>>,
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
-	constellation_line_query : Query<(Entity, &ConstellationLine)>,
+	constellation_line_query : Query<(Entity, &ConstellationModel)>,
 	commands: Commands,
     mut game_state: ResMut<NextState<GameState>>,
     meshes: ResMut<Assets<Mesh>>,
@@ -371,7 +371,7 @@ fn choose_constellation(
 	sky: Res<Sky>, 
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
-	constellation_line_query : Query<(Entity, &ConstellationLine)>,
+	constellation_line_query : Query<(Entity, &ConstellationModel)>,
 	mut commands: Commands,
     mut game_state: ResMut<NextState<GameState>>,
     mut game_data: ResMut<GameData>,
