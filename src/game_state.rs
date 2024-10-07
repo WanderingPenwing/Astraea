@@ -206,10 +206,10 @@ pub fn player_interact(
     text_query: Query<&mut Text, With<AnswerButton>>,
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
 	constellation_line_query : Query<(Entity, &ConstellationModel)>,
-	commands: Commands,
     mut game_state: ResMut<NextState<GameState>>,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
+	mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok(mut player) = player_query.get_single_mut() else {
 		return
@@ -236,7 +236,7 @@ pub fn player_interact(
 			return;
   		};
   		game_data.state = PlayerState::Hinted;
-		spawn_cons_lines(commands, meshes, materials, sky, target_cons);
+		spawn_cons_lines(&mut commands, &mut meshes, &mut materials, sky.get_constellation(&target_cons));
 		return;
 	}
 
@@ -292,9 +292,9 @@ pub fn ui_buttons(
     >,
     mut text_query: Query<&mut Text, With<AnswerButton>>,
     mut game_data: ResMut<GameData>,
-	commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
+	mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     sky: Res<Sky>
 ) {	
 	if game_data.state == PlayerState::Answered {
@@ -325,7 +325,7 @@ pub fn ui_buttons(
 	};
 	
    	if game_data.state == PlayerState::Playing {
-   		spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+   		spawn_cons_lines(&mut commands, &mut meshes, &mut materials, sky.get_constellation(&target_cons));
    	}
 	    	
    	if target_cons == selected_cons {

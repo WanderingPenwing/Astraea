@@ -2,13 +2,19 @@ use bevy::prelude::*;
 
 use crate::Player;
 use crate::GameState;
+use crate::Sky;
+use crate::spawn_cons_lines;
 
-// pub fn setup (
-// 	
-// ) {
-// 	for 
-// 	spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
-// }
+pub fn setup (
+	sky : Res<Sky>,
+	mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+	for constellation in sky.content.iter() {
+		spawn_cons_lines(&mut commands, &mut meshes, &mut materials, constellation.clone());
+	}
+}
 
 pub fn player_mouse_move (
     buttons: Res<ButtonInput<MouseButton>>,

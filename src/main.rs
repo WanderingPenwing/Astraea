@@ -141,14 +141,16 @@ fn main() {
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
         .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
 		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
-		.add_systems(Update, explo_state::player_interact.run_if(in_state(GameState::Explo))) 
 		.add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
-        .add_systems(Update, constellation_opacity.run_if(in_state(GameState::Game)))
+        .add_systems(Update, constellation_opacity.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
         .add_systems(OnEnter(GameState::End), end_state::setup)
         .add_systems(Update, end_state::player_interact.run_if(in_state(GameState::End)))
         .add_systems(OnExit(GameState::End), despawn_screen::<GameOver>)
+        .add_systems(OnEnter(GameState::Explo), explo_state::setup)
+        .add_systems(Update, explo_state::player_interact.run_if(in_state(GameState::Explo))) 
+        .add_systems(OnExit(GameState::Explo), despawn_screen::<MainGame>)
         .run();
 }
 
@@ -185,25 +187,17 @@ fn constellation_opacity(
 }
 
 fn spawn_cons_lines(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    sky: Res<Sky>,
-   	target_constellation_name: String,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    target_constellation: Constellation,
 ) {
     let line_material = materials.add(StandardMaterial {
         emissive: LinearRgba::rgb(0.5, 0.5, 1.0),
         alpha_mode: AlphaMode::Blend,
         ..default()
     });
-
-	let mut target_constellation = sky.content[0].clone();
-    for constellation in sky.content.clone() {
-    	if constellation.name == target_constellation_name {
-    		target_constellation = constellation;
-    	}
-    }
-
+    
     let mut vertices : Vec<Vec3> = vec![];
 
     let mut avg_pos : Vec3 = Vec3::ZERO;
@@ -231,7 +225,7 @@ fn spawn_cons_lines(
 	        ..default()
 	    },
 	 	ConstellationModel {
-	 		name: target_constellation_name,
+	 		name: target_constellation.name,
 	 		center: avg_pos,
 	 	},
 	 	MainGame
