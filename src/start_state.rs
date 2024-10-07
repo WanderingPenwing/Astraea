@@ -5,7 +5,6 @@ use crate::Player;
 use crate::GameState;
 use crate::GameOver;
 use crate::StartMenu;
-use crate::PlayerState;
 
 #[derive(Component)]
 struct AudioPlayer;
@@ -67,13 +66,7 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
    	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
    	        ..default()
    	    },
-   	    Player {
-   	    	target_rotation: None,
-   	    	target_cons_name: None,
-   	    	score: 0,
-   	    	health: 3,
-   	    	state: PlayerState::Playing,
-   	    },
+   	    Player::default(),
    	    GameOver,
    	));
 }

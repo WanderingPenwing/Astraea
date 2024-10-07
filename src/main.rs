@@ -90,6 +90,20 @@ struct Player {
 	score: usize,
 	health: usize,
 	state: PlayerState,
+	dragging_pos: Option<Vec3>,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+         Player {
+   	    	target_rotation: None,
+   	    	target_cons_name: None,
+   	    	score: 0,
+   	    	health: 3,
+   	    	state: PlayerState::Playing,
+   	    	dragging_pos: None,
+   	    }
+    }
 }
 
 #[derive(PartialEq)]
@@ -120,6 +134,7 @@ fn main() {
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_state::setup)
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
+        .add_systems(Update, game_state::player_mouse_move.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)

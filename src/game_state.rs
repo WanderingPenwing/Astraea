@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy::render::render_resource::PrimitiveTopology;
+use bevy::render::render_asset::RenderAssetUsages;
 use std::f64::consts::PI;
 use rand::seq::SliceRandom;
 use rand::RngCore;
@@ -17,6 +19,7 @@ use crate::spawn_cons_lines;
 use crate::NORMAL_BUTTON;
 use crate::RIGHT_BUTTON;
 use crate::WRONG_BUTTON;
+use crate::SKY_RADIUS;
 
 #[derive(Component)]
 pub struct AnswerButton;
@@ -30,7 +33,14 @@ pub struct ScoreLabel;
 #[derive(Component)]
 pub struct HintLabel;
 
-pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
+#[derive(Component)]
+pub struct DebugLine;
+
+pub fn setup(
+	mut commands: Commands, 
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
     let container_node = NodeBundle {
         style: Style {
             width: Val::Percent(100.0),
@@ -160,6 +170,30 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
     commands.entity(centered_container).push_children(&[hint_label]);
 
+
+	let line_material = materials.add(StandardMaterial {
+        emissive: LinearRgba::rgb(2.0, 0.5, 0.5),
+        ..default()
+    });
+
+    let vertices = vec![
+    	Vec3::new(0.0, 0.0, 0.0),
+    	Vec3::new(1.0, 0.0, 0.0)
+    ];
+
+    let mut mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::RENDER_WORLD);
+   	mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+    
+	commands.spawn((
+	    PbrBundle {
+	        mesh: meshes.add(mesh),
+	        material: line_material.clone(),
+	        transform: Transform::default(),
+	        ..default()
+	    },
+	 	DebugLine,
+	 	MainGame
+	));
 }
 
 
@@ -229,6 +263,94 @@ pub fn player_interact(
    }
 }
 
+pub fn player_mouse_move (
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut player_query: Query<(&mut Player, &mut Transform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<Player>>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
+) {
+    let Ok((mut player, mut player_transform)) = player_query.get_single_mut() else {
+    	return;
+    };
+    
+    if !buttons.pressed(MouseButton::Left) {
+    	player.dragging_pos = None;
+    	return
+    }
+    
+   	let window = window_query.single();
+   	
+	let Some(cursor_position) = window.cursor_position() else {
+		return;
+	};
+    
+    let (camera, camera_transform) = camera_query.single();
+    
+  	let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        return;
+    };
+
+    let new_global_cursor = ray.get_point(SKY_RADIUS);
+
+    let Some(old_global_cursor) = player.dragging_pos else {
+    	player.dragging_pos = Some(new_global_cursor);
+    	return;
+    };
+
+    if let Ok(mut debug_transform) = debug_line_query.get_single_mut() {
+    	let direction = old_global_cursor - new_global_cursor ;
+        let distance = direction.length();
+
+        // Scale the line to match the distance between the points
+        debug_transform.scale = Vec3::new(distance*5.0, 1.0, 1.0);
+
+        // Position the line at old_pos
+        debug_transform.translation = new_global_cursor;
+
+        // Rotate the line to point from old_pos to new_pos
+        if distance > f32::EPSILON {
+            let rotation = Quat::from_rotation_arc(Vec3::X, direction.normalize());
+            debug_transform.rotation = rotation;
+        }
+    } else {
+		info!("no debug line");
+    }
+
+    
+
+	if old_global_cursor != new_global_cursor {
+		let target_rotation = player_transform.rotation * rotate_to_align(old_global_cursor, new_global_cursor);
+		player_transform.rotation = player_transform.rotation.slerp(target_rotation, 0.8);
+	}
+	
+    player.dragging_pos = Some(new_global_cursor);
+}
+
+fn rotate_to_align(old_pos: Vec3, new_pos: Vec3) -> Quat {
+    // Step 1: Normalize the input vectors (assuming they're not already normalized)
+    let old_pos_normalized = old_pos.normalize();
+    let new_pos_normalized = new_pos.normalize();
+
+    // Step 2: Compute the axis of rotation (cross product between old and new positions)
+    let axis_of_rotation = old_pos_normalized.cross(new_pos_normalized).normalize();
+
+    if axis_of_rotation.length_squared() < f32::EPSILON {
+        return Quat::IDENTITY;
+    }
+
+    // Step 3: Compute the angle of rotation (dot product and arccosine)
+    //let dot_product = old_pos_normalized.dot(new_pos_normalized);
+    let dot_product = new_pos_normalized.dot(old_pos_normalized);
+    let angle_of_rotation = dot_product.acos(); // This gives us the angle in radians
+
+    if angle_of_rotation.is_nan() || angle_of_rotation.is_infinite() {
+        return Quat::IDENTITY;
+    }
+
+    // Step 4: Create a quaternion representing the rotation
+    Quat::from_axis_angle(axis_of_rotation, angle_of_rotation)
+}
 
 
 pub fn ui_labels(
