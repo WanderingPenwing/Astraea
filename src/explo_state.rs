@@ -1,9 +1,19 @@
 use bevy::prelude::*;
+use std::f32::consts::E;
 
 use crate::Player;
 use crate::GameState;
+use crate::ConstellationModel;
 use crate::Sky;
+use crate::MainGame;
+
+
 use crate::spawn_cons_lines;
+
+use crate::CONS_VIEW_RADIUS;
+
+#[derive(Component)]
+pub struct InfoLabel;
 
 pub fn setup (
 	sky : Res<Sky>,
@@ -14,6 +24,33 @@ pub fn setup (
 	for constellation in sky.content.iter() {
 		spawn_cons_lines(&mut commands, &mut meshes, &mut materials, constellation.clone());
 	}
+	
+	let centered_container_node = NodeBundle {
+        style: Style {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0),
+            top: Val::Px(20.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        ..default()
+    };
+	
+	let info_label_node = TextBundle::from_section(
+        "info",
+        TextStyle {
+            // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 20.0,
+            color: Color::srgb(0.7, 0.7, 0.7),
+            ..default()
+        },
+    );
+
+    let centered_container = commands.spawn(centered_container_node).id();
+    let info_label = commands.spawn((info_label_node, MainGame, InfoLabel)).id();
+
+    commands.entity(centered_container).push_children(&[info_label]);
 }
 
 pub fn player_mouse_move (
@@ -119,4 +156,51 @@ pub fn player_interact(
 	if keys.just_pressed(KeyCode::Escape) {
 		game_state.set(GameState::Start);
 	}
+}
+
+pub fn constellation_opacity(
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    player_query: Query<(&Player, &Camera, &GlobalTransform)>,
+    constellation_query: Query<(&Handle<StandardMaterial>, &ConstellationModel)>, // Query all constellation lines
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    mut info_label_query: Query<&mut Text, With<InfoLabel>>,
+) {
+	let (_player, camera, global_transform) = player_query.single();
+	let window = window_query.single();
+	let Some(cursor_position) = window.cursor_position() else {
+		return;
+	};
+
+	let Some(mouse_ray) = camera.viewport_to_world(&global_transform, cursor_position) else {
+	    return;
+	};
+
+	let cursor_global_pos = mouse_ray.get_point(1.0);
+
+	let mut closest_const_name: String = "".into();
+	let mut closest_const_pos: Vec3 = Vec3::ZERO;
+
+	
+    for (material_handle, constellation_model) in constellation_query.iter() {
+        let Some(material) = materials.get_mut(material_handle) else {
+        	continue;
+        };
+
+        let distance = constellation_model.center.distance(cursor_global_pos);
+        let exponent = -(2.0 * distance / CONS_VIEW_RADIUS).powi(2);
+        let opa = E.powf(exponent);
+        
+        material.base_color = Color::srgba(opa, opa, opa, opa); // Set the alpha channel to adjust transparency
+
+        if distance < closest_const_pos.distance(cursor_global_pos) {
+        	closest_const_name = constellation_model.name.clone();
+        	closest_const_pos = constellation_model.center;
+        }
+    }
+
+    let Ok(mut info_label) = info_label_query.get_single_mut() else {
+    	return;
+    };
+	
+    info_label.sections[0].value = closest_const_name;
 }
