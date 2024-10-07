@@ -7,10 +7,10 @@ use crate::ConstellationModel;
 use crate::Sky;
 use crate::MainGame;
 
-
 use crate::spawn_cons_lines;
 
 use crate::CONS_VIEW_RADIUS;
+use crate::MOUSE_SPEED;
 
 #[derive(Component)]
 pub struct InfoLabel;
@@ -119,7 +119,7 @@ fn rotate_to_align(ray_1: Ray3d, ray_2: Ray3d) -> Quat {
     }
 
     let dot_product = dir_1.dot(dir_2).clamp(-1.0, 1.0);
-    let angle_of_rotation = dot_product.acos() * 6.0;
+    let angle_of_rotation = dot_product.acos() * MOUSE_SPEED;
 
     if angle_of_rotation.is_nan() || angle_of_rotation.is_infinite() {
         return Quat::IDENTITY;

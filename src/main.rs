@@ -21,6 +21,7 @@ const MAX_STAR_SIZE: f32 = 0.63;
 const STAR_SCALE: f32 = 0.02;
 const SKY_RADIUS: f32 = 4.0;
 const CONS_VIEW_RADIUS: f32 = 0.8;
+const MOUSE_SPEED: f32 = 12.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -141,7 +142,6 @@ fn main() {
         .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
 		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
 		.add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
-        .add_systems(Update, explo_state::constellation_opacity.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
         .add_systems(OnEnter(GameState::End), end_state::setup)
@@ -149,6 +149,7 @@ fn main() {
         .add_systems(OnExit(GameState::End), despawn_screen::<GameOver>)
         .add_systems(OnEnter(GameState::Explo), explo_state::setup)
         .add_systems(Update, explo_state::player_interact.run_if(in_state(GameState::Explo))) 
+        .add_systems(Update, explo_state::constellation_opacity.run_if(in_state(GameState::Explo)))
         .add_systems(OnExit(GameState::Explo), despawn_screen::<MainGame>)
         .run();
 }
