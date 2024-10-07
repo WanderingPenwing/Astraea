@@ -10,6 +10,8 @@ mod start_state;
 mod game_state;
 mod explo_state;
 
+use game_state::GameData;
+
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
 const RIGHT_BUTTON: Color = Color::srgb(0.15, 0.50, 0.15);
@@ -107,35 +109,6 @@ struct GameOver;
 struct Player {
 	target_rotation: Option<Quat>,
 	dragging_pos: Option<Vec2>,
-}
-
-#[derive(Resource)]
-struct GameData {
-    content: Vec<String>,
-	score: usize,
-	health: usize,
-	state: PlayerState,
-	target_cons_name: Option<String>,
-}
-
-impl Default for GameData {
-    fn default() -> Self {
-         GameData {
-         	content: vec![],
-   	    	score: 0,
-   	    	health: 3,
-   	    	state: PlayerState::Playing,
-   	    	target_cons_name: None,
-   	    }
-    }
-}
-
-#[derive(Default, PartialEq)]
-enum PlayerState {
-	#[default]
-	Playing,
-	Hinted,
-	Answered,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]

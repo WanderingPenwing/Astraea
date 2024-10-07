@@ -7,8 +7,15 @@ pub fn player_mouse_move (
     buttons: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<(&mut Player, &Camera, &mut GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_query: Query<&Interaction, With<Button>>,
 ) {
-	info!("-");
+    for interaction in ui_query.iter() {
+        if *interaction == Interaction::Pressed {
+        	// Button clicked
+            return;
+        }
+    }
+    
 	let Ok((mut player, camera, global_transform)) = player_query.get_single_mut() else {
 	    return;
 	};

@@ -8,8 +8,6 @@ use crate::MainGame;
 use crate::Sky;
 use crate::Constellation;
 use crate::ConstellationLine;
-use crate::PlayerState;
-use crate::GameData;
 
 use crate::celestial_to_cartesian;
 use crate::spawn_cons_lines;
@@ -29,6 +27,37 @@ pub struct ScoreLabel;
 
 #[derive(Component)]
 pub struct HintLabel;
+
+#[derive(Resource)]
+pub struct GameData {
+    content: Vec<String>,
+	pub score: usize,
+	health: usize,
+	state: PlayerState,
+	target_cons_name: Option<String>,
+	target_cons_focused: bool,
+}
+
+impl Default for GameData {
+    fn default() -> Self {
+         GameData {
+         	content: vec![],
+   	    	score: 0,
+   	    	health: 3,
+   	    	state: PlayerState::Playing,
+   	    	target_cons_name: None,
+   	    	target_cons_focused: false,
+   	    }
+    }
+}
+
+#[derive(Default, PartialEq, Debug)]
+enum PlayerState {
+	#[default]
+	Playing,
+	Hinted,
+	Answered,
+}
 
 pub fn setup(
 	mut commands: Commands, 
@@ -185,6 +214,10 @@ pub fn player_interact(
     let Ok(mut player) = player_query.get_single_mut() else {
 		return
     };
+
+    if player.dragging_pos.is_some() {
+    	game_data.target_cons_focused = false;
+    }
   
     if keys.just_pressed(KeyCode::Space) || game_data.target_cons_name.is_none() {
         choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state, game_data);
@@ -194,62 +227,54 @@ pub fn player_interact(
     if keys.just_pressed(KeyCode::Escape) {
    		game_state.set(GameState::Start);
    	}
-
-    if keys.pressed(KeyCode::KeyI) && game_data.state == PlayerState::Playing {
-    	if let Some(target_cons) = game_data.target_cons_name.clone() {
-    		game_data.state = PlayerState::Hinted;
-			spawn_cons_lines(commands, meshes, materials, sky, target_cons);
-			return
-  		}
+	
+    if keys.pressed(KeyCode::KeyI) {
+    	if game_data.state != PlayerState::Playing {
+    		info!("Invalid state : {:?}", game_data.state);
+    	}
+    	let Some(target_cons) = game_data.target_cons_name.clone() else {
+			return;
+  		};
+  		game_data.state = PlayerState::Hinted;
+		spawn_cons_lines(commands, meshes, materials, sky, target_cons);
+		return;
 	}
 
-    if keys.pressed(KeyCode::KeyR) {
-		if let Some(target_constellation_name) = game_data.target_cons_name.clone() {
-			let mut target_constellation = sky.content[0].clone();
-			for constellation in sky.content.clone() {
-				if constellation.name == target_constellation_name {
-					target_constellation = constellation
-				}
-			}
-			player.target_rotation = Some(constellation_center(target_constellation));
-		}
-    }
-
     if keys.pressed(KeyCode::KeyW) {
-        let target_constellation_name: String = "Ursa Minor".into();
-          	
+		game_data.target_cons_focused = true;
+		let Some(target_constellation_name) = game_data.target_cons_name.clone() else {
+			return;
+		};
 		let mut target_constellation = sky.content[0].clone();
 		for constellation in sky.content.clone() {
 			if constellation.name == target_constellation_name {
 				target_constellation = constellation
 			}
 		}
-		
 		player.target_rotation = Some(constellation_center(target_constellation));
-	}
+    }
 }
 
 pub fn ui_labels(
-    mut param_set: ParamSet<(
-        Query<&mut Text, With<HealthLabel>>,
-        Query<&mut Text, With<ScoreLabel>>,
-        Query<&mut Text, With<HintLabel>>,
-    )>,
+    mut label_query: Query<(&mut Text, Option<&HealthLabel>, Option<&ScoreLabel>, Option<&HintLabel>)>,
     game_data: Res<GameData>
 ) {
-	if let Ok(mut health_text) = param_set.p0().get_single_mut() {
-		health_text.sections[0].value = "# ".repeat(game_data.health);
-	}
 
-	if let Ok(mut score_text) = param_set.p1().get_single_mut() {
-		score_text.sections[0].value = format!("{}", game_data.score);
-	}
-
-	if let Ok(mut hint_text) = param_set.p2().get_single_mut() {
-		if game_data.state == PlayerState::Answered {
-			hint_text.sections[0].value = "press space to continue".into();
-		} else {
-			hint_text.sections[0].value = "press i to get an hint".into();
+	for (mut text, health_label, score_label, hint_label) in label_query.iter_mut() {
+		if health_label.is_some() {
+			text.sections[0].value = "# ".repeat(game_data.health);
+		} else if score_label.is_some() {
+			text.sections[0].value = format!("{}", game_data.score);
+		} else if hint_label.is_some() {
+			if !game_data.target_cons_focused {
+				text.sections[0].value = "press z to re-center".into();
+			} else if game_data.state == PlayerState::Playing {
+				text.sections[0].value = "press i to get an hint".into();
+			} else if game_data.state == PlayerState::Answered {
+				text.sections[0].value = "press space to continue".into();
+			} else {
+				text.sections[0].value = "guess the constellation".into();
+			}
 		}
 	}
 }
@@ -386,6 +411,7 @@ fn choose_constellation(
     }
 
     game_data.state = PlayerState::Playing;
+    game_data.target_cons_focused = true;
 }
 
 fn constellation_center(target_constellation: Constellation) -> Quat {
