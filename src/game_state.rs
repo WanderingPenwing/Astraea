@@ -7,6 +7,7 @@ use crate::Player;
 use crate::GameState;
 use crate::MainGame;
 use crate::Sky;
+use crate::Constellation;
 use crate::ConstellationLine;
 use crate::PlayerState;
 
@@ -195,12 +196,25 @@ pub fn player_interact(
         	if let Some(target_cons) = player.target_cons_name.clone() {
         		player.state = PlayerState::Hinted;
     			spawn_cons_lines(commands, meshes, materials, sky, target_cons);
+    			return
     		}
  		}
 
         if rotation != Quat::IDENTITY {
             transform.rotation *= rotation; 
             player.target_rotation = None;
+        }
+
+        if keys.pressed(KeyCode::KeyR) {
+ 			if let Some(target_constellation_name) = player.target_cons_name.clone() {
+ 				let mut target_constellation = sky.content[0].clone();
+ 				for constellation in sky.content.clone() {
+ 					if constellation.name == target_constellation_name {
+ 						target_constellation = constellation
+ 					}
+ 				}
+ 				player.target_rotation = Some(constellation_center(target_constellation));
+ 			}
         }
 
         if let Some(target_rotation) = player.target_rotation {
@@ -348,16 +362,7 @@ fn choose_constellation(
         let target_index = rng.next_u32().rem_euclid(4) as usize;
         let target_constellation = &constellations[target_index];
 
-		let mut mean_pos = Vec3::ZERO;
-        for star in target_constellation.stars.clone() {
-        	mean_pos += celestial_to_cartesian(star.rah, star.dec)
-        }
-        let target_rotation = Quat::from_rotation_arc(
-            Vec3::Z,
-            -mean_pos*(1.0/target_constellation.stars.len() as f32),
-        );
-
-        player.target_rotation = Some(target_rotation);
+        player.target_rotation = Some(constellation_center(target_constellation.clone()));
         player.target_cons_name = Some(target_constellation.name.clone());
 
         info!("Target constellation: {}", target_constellation.name);
@@ -379,4 +384,17 @@ fn choose_constellation(
     } else {
         info!("Not enough constellations in the sky (need 4)");
     }
+}
+
+fn constellation_center(target_constellation: Constellation) -> Quat {
+	let mut mean_pos = Vec3::ZERO;
+	
+    for star in target_constellation.stars.clone() {
+    	mean_pos += celestial_to_cartesian(star.rah, star.dec)
+    }
+
+    Quat::from_rotation_arc(
+        Vec3::Z,
+        -mean_pos*(1.0/target_constellation.stars.len() as f32),
+    )
 }
