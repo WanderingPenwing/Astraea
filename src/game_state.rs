@@ -10,6 +10,7 @@ use crate::Sky;
 use crate::Constellation;
 use crate::ConstellationLine;
 use crate::PlayerState;
+use crate::GameData;
 
 use crate::celestial_to_cartesian;
 use crate::spawn_cons_lines;
@@ -167,6 +168,7 @@ pub fn setup(
 pub fn player_interact(
     keys: Res<ButtonInput<KeyCode>>,
     mut player_query: Query<(&mut Player, &mut Transform)>, 
+    mut game_data: ResMut<GameData>, 
     sky: Res<Sky>, 
     text_query: Query<&mut Text, With<AnswerButton>>,
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
@@ -176,71 +178,72 @@ pub fn player_interact(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    if let Ok((mut player, mut transform)) = player_query.get_single_mut() {
+    let Ok((mut player, mut transform)) = player_query.get_single_mut() else {
+		return
+    };
+  
+    if keys.just_pressed(KeyCode::Space) || game_data.target_cons_name.is_none() {
+        choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state, game_data);
+		return
+    }
+
+    let mut rotation = Quat::IDENTITY;
     
-        if keys.just_pressed(KeyCode::Space) || player.target_cons_name.is_none() {
-            choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state);
+    if keys.pressed(KeyCode::KeyA) {
+        rotation *= Quat::from_rotation_y((PI / 60.0) as f32); 
+    }
+
+    if keys.pressed(KeyCode::KeyD) {
+        rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); 
+    }
+
+    if keys.pressed(KeyCode::KeyI) && game_data.state == PlayerState::Playing {
+    	if let Some(target_cons) = game_data.target_cons_name.clone() {
+    		game_data.state = PlayerState::Hinted;
+			spawn_cons_lines(commands, meshes, materials, sky, target_cons);
 			return
-        }
+  		}
+	}
 
-        let mut rotation = Quat::IDENTITY;
-        
-        if keys.pressed(KeyCode::KeyA) {
-            rotation *= Quat::from_rotation_y((PI / 60.0) as f32); 
-        }
+    if rotation != Quat::IDENTITY {
+        transform.rotation *= rotation; 
+        player.target_rotation = None;
+    }
 
-        if keys.pressed(KeyCode::KeyD) {
-            rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); 
-        }
-
-        if keys.pressed(KeyCode::KeyI) && player.state == PlayerState::Playing {
-        	if let Some(target_cons) = player.target_cons_name.clone() {
-        		player.state = PlayerState::Hinted;
-    			spawn_cons_lines(commands, meshes, materials, sky, target_cons);
-    			return
-    		}
- 		}
-
-        if rotation != Quat::IDENTITY {
-            transform.rotation *= rotation; 
-            player.target_rotation = None;
-        }
-
-        if keys.pressed(KeyCode::KeyR) {
- 			if let Some(target_constellation_name) = player.target_cons_name.clone() {
- 				let mut target_constellation = sky.content[0].clone();
- 				for constellation in sky.content.clone() {
- 					if constellation.name == target_constellation_name {
- 						target_constellation = constellation
- 					}
- 				}
- 				player.target_rotation = Some(constellation_center(target_constellation));
- 			}
-        }
-
-        if keys.pressed(KeyCode::KeyW) {
-            let target_constellation_name: String = "Ursa Minor".into();
-            	
+    if keys.pressed(KeyCode::KeyR) {
+		if let Some(target_constellation_name) = game_data.target_cons_name.clone() {
 			let mut target_constellation = sky.content[0].clone();
 			for constellation in sky.content.clone() {
 				if constellation.name == target_constellation_name {
 					target_constellation = constellation
 				}
 			}
-			
 			player.target_rotation = Some(constellation_center(target_constellation));
+		}
+    }
+
+    if keys.pressed(KeyCode::KeyW) {
+        let target_constellation_name: String = "Ursa Minor".into();
+          	
+		let mut target_constellation = sky.content[0].clone();
+		for constellation in sky.content.clone() {
+			if constellation.name == target_constellation_name {
+				target_constellation = constellation
+			}
+		}
+		
+		player.target_rotation = Some(constellation_center(target_constellation));
+	}
+
+    if let Some(target_rotation) = player.target_rotation {
+        let current_rotation = transform.rotation;
+
+        transform.rotation = current_rotation.slerp(target_rotation, 0.1);
+
+        if transform.rotation.angle_between(target_rotation) < 0.01 {
+            player.target_rotation = None; 
         }
-
-        if let Some(target_rotation) = player.target_rotation {
-            let current_rotation = transform.rotation;
-
-            transform.rotation = current_rotation.slerp(target_rotation, 0.1);
-
-            if transform.rotation.angle_between(target_rotation) < 0.01 {
-                player.target_rotation = None; 
-            }
-        }
-   }
+    }
 }
 
 pub fn ui_labels(
@@ -249,24 +252,22 @@ pub fn ui_labels(
         Query<&mut Text, With<ScoreLabel>>,
         Query<&mut Text, With<HintLabel>>,
     )>,
-    mut player_query: Query<(&mut Player, &mut Transform)>,
+    game_data: Res<GameData>
 ) {
-    if let Ok((player, _)) = player_query.get_single_mut() {
-        if let Ok(mut health_text) = param_set.p0().get_single_mut() {
-            health_text.sections[0].value = "# ".repeat(player.health);
-        }
+	if let Ok(mut health_text) = param_set.p0().get_single_mut() {
+		health_text.sections[0].value = "# ".repeat(game_data.health);
+	}
 
-        if let Ok(mut score_text) = param_set.p1().get_single_mut() {
-            score_text.sections[0].value = format!("{}", player.score);
-        }
+	if let Ok(mut score_text) = param_set.p1().get_single_mut() {
+		score_text.sections[0].value = format!("{}", game_data.score);
+	}
 
-		if let Ok(mut hint_text) = param_set.p2().get_single_mut() {
-			if player.state == PlayerState::Answered {
-	            hint_text.sections[0].value = "press space to continue".into();
-	        } else {
-	        	hint_text.sections[0].value = "press i to get an hint".into();
-	        }
-	    }
+	if let Ok(mut hint_text) = param_set.p2().get_single_mut() {
+		if game_data.state == PlayerState::Answered {
+			hint_text.sections[0].value = "press space to continue".into();
+		} else {
+			hint_text.sections[0].value = "press i to get an hint".into();
+		}
 	}
 }
 
@@ -282,75 +283,77 @@ pub fn ui_buttons(
         With<Button>,
     >,
     mut text_query: Query<&mut Text, With<AnswerButton>>,
-    mut player_query: Query<&mut Player>,
+    mut game_data: ResMut<GameData>,
 	commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     sky: Res<Sky>
-) {
-	if let Ok(mut player) = player_query.get_single_mut() {
-		if player.state == PlayerState::Answered {
-			return
-		}
-		
-		let mut pressed_button: Option<String> = None;
-		
-	    for (
-	        interaction,
-	        _color,
-	        _border_color,
-	        children
-	    ) in &mut interaction_query {
-	        if *interaction == Interaction::Pressed {
-	        	if let Ok(text) = text_query.get_mut(children[0]) {
-	                pressed_button = Some(text.sections[0].value.clone());
-	            }
+) {	
+	if game_data.state == PlayerState::Answered {
+		return;
+	}
+
+	let mut pressed_button: Option<String> = None;
+
+	for (
+	    interaction,
+	    _color,
+	    _border_color,
+	    children
+	) in &mut interaction_query {
+	    if *interaction == Interaction::Pressed {
+	    	if let Ok(text) = text_query.get_mut(children[0]) {
+	            pressed_button = Some(text.sections[0].value.clone());
 	        }
 	    }
-
-		if let Some(selected_cons) = pressed_button {
-		    if let Some(target_cons) = player.target_cons_name.clone() {
-		    	if player.state == PlayerState::Playing {
-		    		spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
-		    	}
-		    	
-		    	if target_cons == selected_cons {
-		    		if player.state == PlayerState::Hinted {
-		    			player.score += 20;
-		    		} else {
-		    			player.score += 100;
-		    		}
-		    	} else {
-		    		player.health -= 1;
-		    	}
-
-		    	player.state = PlayerState::Answered;
-
-		  		for (
-			        _interaction,
-			        mut color,
-			        mut border_color,
-			        children
-			    ) in &mut interaction_query {
-			    	if let Ok(text) = text_query.get_mut(children[0]) {
-			    		let button_text = text.sections[0].value.clone();
-			    		
-				        *color = if button_text == target_cons {
-				        	RIGHT_BUTTON.into()
-				        } else {
-				        	WRONG_BUTTON.into()
-				        };
-
-				        border_color.0 = if button_text == selected_cons {
-				        	Color::WHITE
-				        } else {
-				        	Color::BLACK
-				        };
-				    }
-			    }
-			}
-	    }
 	}
+
+	let Some(selected_cons) = pressed_button else {
+		return;
+	};
+
+	let Some(target_cons) = game_data.target_cons_name.clone() else {
+		return;
+	};
+	
+   	if game_data.state == PlayerState::Playing {
+   		spawn_cons_lines(commands, meshes, materials, sky, target_cons.clone());
+   	}
+	    	
+   	if target_cons == selected_cons {
+   		if game_data.state == PlayerState::Hinted {
+   			game_data.score += 20;
+   		} else {
+   			game_data.score += 100;
+   		}
+   	} else {
+   		game_data.health -= 1;
+   	}
+
+   	game_data.state = PlayerState::Answered;
+
+ 		for (
+        _interaction,
+        mut color,
+        mut border_color,
+        children
+    ) in &mut interaction_query {
+    	if let Ok(text) = text_query.get_mut(children[0]) {
+    		let button_text = text.sections[0].value.clone();
+    		
+	        *color = if button_text == target_cons {
+	        	RIGHT_BUTTON.into()
+	        } else {
+	        	WRONG_BUTTON.into()
+	        };
+
+	        border_color.0 = if button_text == selected_cons {
+	        	Color::WHITE
+	        } else {
+	        	Color::BLACK
+	        };
+	    }
+    }
 }
 
 fn choose_constellation(
@@ -360,9 +363,10 @@ fn choose_constellation(
     mut button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	mut commands: Commands,
-    mut game_state: ResMut<NextState<GameState>>
+    mut game_state: ResMut<NextState<GameState>>,
+    mut game_data: ResMut<GameData>,
 ) {
-	if player.health == 0 {
+	if game_data.health == 0 {
 		game_state.set(GameState::End);
 	}
 	if sky.content.len() >= 4 {
@@ -375,7 +379,7 @@ fn choose_constellation(
         let target_constellation = &constellations[target_index];
 
         player.target_rotation = Some(constellation_center(target_constellation.clone()));
-        player.target_cons_name = Some(target_constellation.name.clone());
+        game_data.target_cons_name = Some(target_constellation.name.clone());
 
         info!("Target constellation: {}", target_constellation.name);
 
@@ -392,7 +396,7 @@ fn choose_constellation(
             commands.entity(entity).despawn();
         }
 
-        player.state = PlayerState::Playing;
+        game_data.state = PlayerState::Playing;
     } else {
         info!("Not enough constellations in the sky (need 4)");
     }

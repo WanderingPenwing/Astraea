@@ -1,10 +1,10 @@
 use bevy::prelude::*;
 use std::f64::consts::PI;
 //use bevy::input::mouse::MouseMotion;
-use crate::Player;
 use crate::GameState;
-use crate::GameOver;
 use crate::StartMenu;
+use crate::GameData;
+use crate::Player;
 
 #[derive(Component)]
 struct AudioPlayer;
@@ -17,7 +17,10 @@ pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     info!("audio started");
 }
 
-pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
+pub fn setup(
+	mut commands: Commands,
+	mut game_data: ResMut<GameData>
+) {
     let container_node = NodeBundle {
         style: Style {
             width: Val::Percent(100.0), 
@@ -61,24 +64,13 @@ pub fn setup(mut commands: Commands, _asset_server: Res<AssetServer>) {
 
     commands.entity(container).push_children(&[top_text, bottom_text]);
 
-    commands.spawn((
-       	Camera3dBundle {
-   	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-   	        ..default()
-   	    },
-   	    Player::default(),
-   	    GameOver,
-   	));
+	*game_data = GameData::default();
 }
 
 pub fn player_interact(
 	keys: Res<ButtonInput<KeyCode>>,
 	mut game_state: ResMut<NextState<GameState>>,
 	mut player_query: Query<(&mut Player, &mut Transform)>,
-	//commands: Commands,
-	//mut evr_motion: EventReader<MouseMotion>,
-	//asset_server: Res<AssetServer>,
-	//mut audio_query: Query<&mut AudioPlayer>,
 ) {
 	if keys.just_pressed(KeyCode::Space) {
 		info!("start space");
@@ -86,12 +78,6 @@ pub fn player_interact(
 	}
 
 	if let Ok((_player, mut transform)) = player_query.get_single_mut() {
-		// for _ev in evr_motion.read() {
-		// 	if let Err(_) = audio_query.get_single_mut() {
-		// 		audio_setup(asset_server, commands);
-		// 	}
-		// }
-	
 		let mut rotation = Quat::IDENTITY;
 		rotation *= Quat::from_rotation_y((PI / 6000.0) as f32);
 	    rotation *= Quat::from_rotation_x((-PI / 2000.0) as f32);

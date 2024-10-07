@@ -46,6 +46,27 @@ struct Sky {
     content: Vec<Constellation>,
 }
 
+#[derive(Resource)]
+struct GameData {
+    seen: Vec<Constellation>,
+	score: usize,
+	health: usize,
+	state: PlayerState,
+	target_cons_name: Option<String>,
+}
+
+impl Default for GameData {
+    fn default() -> Self {
+         GameData {
+         	seen: vec![],
+   	    	score: 0,
+   	    	health: 3,
+   	    	state: PlayerState::Playing,
+   	    	target_cons_name: None,
+   	    }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Constellation {
 	#[serde(rename = "Name")]
@@ -84,31 +105,15 @@ struct MainGame;
 #[derive(Component)]
 struct GameOver;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Player {
 	target_rotation: Option<Quat>,
-	target_cons_name: Option<String>,
-	score: usize,
-	health: usize,
-	state: PlayerState,
 	dragging_pos: Option<Vec2>,
 }
 
-impl Default for Player {
-    fn default() -> Self {
-         Player {
-   	    	target_rotation: None,
-   	    	target_cons_name: None,
-   	    	score: 0,
-   	    	health: 3,
-   	    	state: PlayerState::Playing,
-   	    	dragging_pos: None,
-   	    }
-    }
-}
-
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 enum PlayerState {
+	#[default]
 	Playing,
 	Hinted,
 	Answered,
@@ -126,6 +131,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(Sky::default())
+        .insert_resource(GameData::default())
         .init_state::<GameState>()
         .add_systems(Startup, star_setup)
         .add_systems(Startup, cons_setup)
@@ -225,6 +231,14 @@ fn star_setup(
             Star,
      	));
     }
+
+    commands.spawn((
+       	Camera3dBundle {
+   	        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+   	        ..default()
+   	    },
+   	    Player::default(),
+   	));
 }
 
 fn get_stars() -> std::io::Result<Vec<StarData>> {
