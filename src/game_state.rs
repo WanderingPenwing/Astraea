@@ -251,6 +251,19 @@ pub fn player_interact(
  			}
         }
 
+        if keys.pressed(KeyCode::KeyW) {
+            let target_constellation_name: String = "Ursa Minor".into();
+            	
+			let mut target_constellation = sky.content[0].clone();
+			for constellation in sky.content.clone() {
+				if constellation.name == target_constellation_name {
+					target_constellation = constellation
+				}
+			}
+			
+			player.target_rotation = Some(constellation_center(target_constellation));
+        }
+
         if let Some(target_rotation) = player.target_rotation {
             let current_rotation = transform.rotation;
 
@@ -268,7 +281,7 @@ pub fn player_mouse_move (
     mut player_query: Query<(&mut Player, &mut Transform)>,
     camera_query: Query<(&Camera, &GlobalTransform), With<Player>>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
-    mut debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
+    debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
 ) {
     let Ok((mut player, mut player_transform)) = player_query.get_single_mut() else {
     	return;
@@ -280,7 +293,6 @@ pub fn player_mouse_move (
     }
     
    	let window = window_query.single();
-   	
 	let Some(cursor_position) = window.cursor_position() else {
 		return;
 	};
@@ -298,33 +310,36 @@ pub fn player_mouse_move (
     	return;
     };
 
-    if let Ok(mut debug_transform) = debug_line_query.get_single_mut() {
-    	let direction = old_global_cursor - new_global_cursor ;
-        let distance = direction.length();
-
-        // Scale the line to match the distance between the points
-        debug_transform.scale = Vec3::new(distance*5.0, 1.0, 1.0);
-
-        // Position the line at old_pos
-        debug_transform.translation = new_global_cursor;
-
-        // Rotate the line to point from old_pos to new_pos
-        if distance > f32::EPSILON {
-            let rotation = Quat::from_rotation_arc(Vec3::X, direction.normalize());
-            debug_transform.rotation = rotation;
-        }
-    } else {
-		info!("no debug line");
-    }
-
     
+	debug_vector(debug_line_query, new_global_cursor, old_global_cursor - new_global_cursor);
 
-	if old_global_cursor != new_global_cursor {
-		let target_rotation = player_transform.rotation * rotate_to_align(old_global_cursor, new_global_cursor);
-		player_transform.rotation = player_transform.rotation.slerp(target_rotation, 0.8);
+	if old_global_cursor.distance(new_global_cursor) < f32::EPSILON {
+		return;
 	}
 	
-    player.dragging_pos = Some(new_global_cursor);
+	let delta_rotation = rotate_to_align(old_global_cursor, new_global_cursor);
+	
+	player_transform.rotation = delta_rotation * player_transform.rotation;
+
+
+	
+	player.dragging_pos = Some(new_global_cursor);
+// 	let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+//         return;
+//     };
+// 
+//     player.dragging_pos = Some(ray.get_point(SKY_RADIUS));
+}
+
+fn rotate_vector_with_quaternion(v: Vec3, q: Quat) -> Vec3 {
+    // Convert the vector to a quaternion (0, v.x, v.y, v.z)
+    let vector_as_quaternion = Quat::from_xyzw(0.0, v.x, v.y, v.z);
+    
+    // Apply the rotation: q * vector * q^-1
+    let rotated_vector = q * vector_as_quaternion * q.conjugate();
+    
+    // Extract the rotated vector from the quaternion
+    Vec3::new(rotated_vector.x, rotated_vector.y, rotated_vector.z)
 }
 
 fn rotate_to_align(old_pos: Vec3, new_pos: Vec3) -> Quat {
@@ -350,6 +365,27 @@ fn rotate_to_align(old_pos: Vec3, new_pos: Vec3) -> Quat {
 
     // Step 4: Create a quaternion representing the rotation
     Quat::from_axis_angle(axis_of_rotation, angle_of_rotation)
+}
+
+fn debug_vector(
+	mut debug_line_query: Query<&mut Transform, (With<DebugLine>, Without<Player>)>,
+	pos: Vec3, vec: Vec3
+) {
+	let Ok(mut debug_transform) = debug_line_query.get_single_mut() else {
+		info!("no debug line");
+		return;
+	};
+	
+    let vec_norm = vec.length();
+
+    debug_transform.scale = Vec3::new(vec_norm, 1.0, 1.0);
+
+    debug_transform.translation = pos;
+
+    if vec_norm > f32::EPSILON {
+        let rotation = Quat::from_rotation_arc(Vec3::X, vec.normalize());
+        debug_transform.rotation = rotation;
+    }
 }
 
 
