@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use std::f64::consts::PI;
 use rand::seq::SliceRandom;
 use rand::RngCore;
 
@@ -172,18 +171,18 @@ pub fn setup(
 
 pub fn player_interact(
     keys: Res<ButtonInput<KeyCode>>,
-    mut player_query: Query<(&mut Player, &mut Transform)>, 
+    mut player_query: Query<&mut Player>, 
     mut game_data: ResMut<GameData>, 
     sky: Res<Sky>, 
     text_query: Query<&mut Text, With<AnswerButton>>,
     button_query: Query<(&mut BackgroundColor, &mut BorderColor), With<Button>>, 
 	constellation_line_query : Query<(Entity, &ConstellationLine)>,
 	commands: Commands,
-    game_state: ResMut<NextState<GameState>>,
+    mut game_state: ResMut<NextState<GameState>>,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let Ok((mut player, mut transform)) = player_query.get_single_mut() else {
+    let Ok(mut player) = player_query.get_single_mut() else {
 		return
     };
   
@@ -191,16 +190,10 @@ pub fn player_interact(
         choose_constellation(&mut player, sky, text_query, button_query, constellation_line_query, commands, game_state, game_data);
 		return
     }
-
-    let mut rotation = Quat::IDENTITY;
     
-    if keys.pressed(KeyCode::KeyA) {
-        rotation *= Quat::from_rotation_y((PI / 60.0) as f32); 
-    }
-
-    if keys.pressed(KeyCode::KeyD) {
-        rotation *= Quat::from_rotation_y((-PI / 60.0) as f32); 
-    }
+    if keys.just_pressed(KeyCode::Escape) {
+   		game_state.set(GameState::Start);
+   	}
 
     if keys.pressed(KeyCode::KeyI) && game_data.state == PlayerState::Playing {
     	if let Some(target_cons) = game_data.target_cons_name.clone() {
@@ -209,11 +202,6 @@ pub fn player_interact(
 			return
   		}
 	}
-
-    if rotation != Quat::IDENTITY {
-        transform.rotation *= rotation; 
-        player.target_rotation = None;
-    }
 
     if keys.pressed(KeyCode::KeyR) {
 		if let Some(target_constellation_name) = game_data.target_cons_name.clone() {
