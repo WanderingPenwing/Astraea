@@ -8,6 +8,7 @@ use std::f64::consts::PI;
 mod end_state;
 mod start_state;
 mod game_state;
+mod explo_state;
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const WRONG_BUTTON: Color = Color::srgb(0.50, 0.15, 0.15);
@@ -134,7 +135,7 @@ fn main() {
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_state::setup)
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
-        .add_systems(Update, game_state::player_mouse_move.run_if(in_state(GameState::Game)))
+        .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
