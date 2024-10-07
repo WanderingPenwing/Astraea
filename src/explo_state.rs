@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 
 use crate::Player;
+use crate::GameState;
 
 pub fn player_mouse_move (
     buttons: Res<ButtonInput<MouseButton>>,
     mut player_query: Query<(&mut Player, &Camera, &mut GlobalTransform)>,
     window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
 ) {
+	info!("-");
 	let Ok((mut player, camera, global_transform)) = player_query.get_single_mut() else {
 	    return;
 	};
@@ -67,4 +69,34 @@ fn rotate_to_align(ray_1: Ray3d, ray_2: Ray3d) -> Quat {
     }
 
     Quat::from_axis_angle(axis_of_rotation, angle_of_rotation)
+}
+
+pub fn rotate_camera(
+	mut player_query : Query<(&mut Player, &mut Transform)>
+) {
+	let Ok((mut player, mut transform)) = player_query.get_single_mut() else {
+        return;
+    };
+	
+	let Some(target_rotation) = player.target_rotation else {
+        return;
+    };
+    
+    let current_rotation = transform.rotation;
+    
+    transform.rotation = current_rotation.slerp(target_rotation, 0.1);
+
+    if transform.rotation.angle_between(target_rotation) < 0.01 {
+        player.target_rotation = None; 
+    }
+}
+
+pub fn player_interact(
+	keys: Res<ButtonInput<KeyCode>>,
+	mut game_state: ResMut<NextState<GameState>>,
+	//mut player_query: Query<(&mut Player, &mut Transform)>,
+) {
+	if keys.just_pressed(KeyCode::Escape) {
+		game_state.set(GameState::Start);
+	}
 }

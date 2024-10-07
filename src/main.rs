@@ -142,6 +142,7 @@ enum PlayerState {
 enum GameState {
     #[default]
     Start,
+    Explo,
     Game,
     End,
 }
@@ -160,7 +161,9 @@ fn main() {
         .add_systems(OnExit(GameState::Start), despawn_screen::<StartMenu>)
         .add_systems(OnEnter(GameState::Game), game_state::setup)
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
-        .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game)))
+        .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
+		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
+		.add_systems(Update, explo_state::player_interact.run_if(in_state(GameState::Explo))) 
         .add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)

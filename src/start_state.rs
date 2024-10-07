@@ -19,48 +19,62 @@ pub fn audio_setup(asset_server: Res<AssetServer>, mut commands: Commands) {
 pub fn setup(
 	mut commands: Commands,
 ) {
-    let container_node = NodeBundle {
+    let main_container_node = NodeBundle {
         style: Style {
             width: Val::Percent(100.0), 
             height: Val::Percent(100.0),
             flex_direction: FlexDirection::Column, 
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            
             ..default()
         },
         ..default()
     };
 
-    let container = commands.spawn(container_node).id();
+    let main_container = commands.spawn(main_container_node).id();
 
-    let top_text_style = TextStyle {
+    let title_text_style = TextStyle {
         font_size: 50.0, 
         color: Color::WHITE,
         // font: asset_server.load("fonts/FiraSans-Bold.ttf"), // Load font if needed
         ..default()
     };
 
-    let bottom_text_style = TextStyle {
+    let start_text_style = TextStyle {
         font_size: 30.0, 
         color: Color::WHITE,
         // font: asset_server.load("fonts/FiraSans-Regular.ttf"), // Load font if needed
         ..default()
     };
 
-    let top_text_node = TextBundle::from_section(
+    let explo_text_style = TextStyle {
+        font_size: 30.0, 
+        color: Color::srgb(0.4,0.4,0.4),
+        // font: asset_server.load("fonts/FiraSans-Regular.ttf"), // Load font if needed
+        ..default()
+    };
+
+    let title_text_node = TextBundle::from_section(
         "Astraea", 
-        top_text_style,
+        title_text_style,
     );
 
-    let bottom_text_node = TextBundle::from_section(
+    let start_text_node = TextBundle::from_section(
         "Press Space to Begin", 
-        bottom_text_style,
+        start_text_style,
     );
 
-    let top_text = commands.spawn((top_text_node, StartMenu)).id();
-    let bottom_text = commands.spawn((bottom_text_node, StartMenu)).id();
+    let explo_text_node = TextBundle::from_section(
+        "Press E to Explore", 
+        explo_text_style,
+    );
 
-    commands.entity(container).push_children(&[top_text, bottom_text]);
+    let title_text = commands.spawn((title_text_node, StartMenu)).id();
+    let start_text = commands.spawn((start_text_node, StartMenu)).id();
+    let explo_text = commands.spawn((explo_text_node, StartMenu)).id();
+
+    commands.entity(main_container).push_children(&[title_text, start_text, explo_text]);
 }
 
 pub fn player_interact(
@@ -69,8 +83,11 @@ pub fn player_interact(
 	mut player_query: Query<(&mut Player, &mut Transform)>,
 ) {
 	if keys.just_pressed(KeyCode::Space) {
-		info!("start space");
 		game_state.set(GameState::Game);
+	}
+
+	if keys.just_pressed(KeyCode::KeyE) {
+		game_state.set(GameState::Explo);
 	}
 
 	if let Ok((_player, mut transform)) = player_query.get_single_mut() {

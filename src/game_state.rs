@@ -239,16 +239,6 @@ pub fn player_interact(
 		
 		player.target_rotation = Some(constellation_center(target_constellation));
 	}
-
-    if let Some(target_rotation) = player.target_rotation {
-        let current_rotation = transform.rotation;
-
-        transform.rotation = current_rotation.slerp(target_rotation, 0.1);
-
-        if transform.rotation.angle_between(target_rotation) < 0.01 {
-            player.target_rotation = None; 
-        }
-    }
 }
 
 pub fn ui_labels(
