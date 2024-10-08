@@ -113,10 +113,12 @@ pub fn zoom(
 	mut projection_query: Query<&mut Projection, With<Player>>,
 ) {
 	let Ok(mut projection) = projection_query.get_single_mut() else {
+		//info!("no camera projection");
 		return;
 	};
 
 	let Projection::Perspective(ref mut perspective) = *projection else {
+		//info!("no camera perspective");
 		return;
 	};
 	
@@ -124,9 +126,10 @@ pub fn zoom(
         match ev.unit {
             MouseScrollUnit::Line => {
 				perspective.fov = (0.6*PI).min((0.02*PI).max(perspective.fov * 0.9_f32.powf(ev.y)));
+				//info!("Scroll (line units): vertical: {}, horizontal: {}", ev.y, ev.x);
             }
             MouseScrollUnit::Pixel => {
-                println!("Scroll (pixel units): vertical: {}, horizontal: {}", ev.y, ev.x);
+                //info!("Scroll (pixel units): vertical: {}, horizontal: {}", ev.y, ev.x);
             }
         }
     }
