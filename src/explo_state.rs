@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use std::f32::consts::E;
+use bevy::input::mouse::MouseScrollUnit;
+use bevy::input::mouse::MouseWheel;
+
+use std::f32::consts::{E, PI};
 
 use crate::Player;
 use crate::GameState;
@@ -103,6 +106,30 @@ pub fn player_mouse_move (
 
 	player.target_rotation = Some(delta_rotation * local_transform.rotation );
 	player.dragging_pos = Some(new_cursor);
+}
+
+pub fn zoom(
+	mut evr_scroll: EventReader<MouseWheel>,
+	mut projection_query: Query<&mut Projection, With<Player>>,
+) {
+	let Ok(mut projection) = projection_query.get_single_mut() else {
+		return;
+	};
+
+	let Projection::Perspective(ref mut perspective) = *projection else {
+		return;
+	};
+	
+	for ev in evr_scroll.read() {
+        match ev.unit {
+            MouseScrollUnit::Line => {
+				perspective.fov = (0.6*PI).min((0.02*PI).max(perspective.fov * 0.9_f32.powf(ev.y)));
+            }
+            MouseScrollUnit::Pixel => {
+                println!("Scroll (pixel units): vertical: {}, horizontal: {}", ev.y, ev.x);
+            }
+        }
+    }
 }
 
 fn rotate_to_align(ray_1: Ray3d, ray_2: Ray3d) -> Quat {

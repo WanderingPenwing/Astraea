@@ -141,6 +141,7 @@ fn main() {
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
         .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
 		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
+		.add_systems(Update, explo_state::zoom.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
 		.add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))
         .add_systems(Update, game_state::ui_labels.run_if(in_state(GameState::Game)))
         .add_systems(OnExit(GameState::Game), despawn_screen::<MainGame>)
@@ -207,7 +208,8 @@ fn star_setup(
 ) {
     commands.insert_resource(ClearColor(Color::BLACK));
 
-	let stars = get_stars().unwrap();
+	let stars: Vec<StarData> = serde_json::from_str(include_str!("../data/stars.json")).expect("no star json provided");
+	
 
 	let star_mesh = meshes.add(Sphere::new(1.0).mesh().ico(3).unwrap());
 	
@@ -247,14 +249,6 @@ fn star_setup(
    	));
 }
 
-fn get_stars() -> std::io::Result<Vec<StarData>> {
-    let data = include_str!("../data/stars.json");
-
-    let stars: Vec<StarData> = serde_json::from_str(&data).unwrap();
-
-    Ok(stars)
-}
-
 fn star_position(star_data: StarData) -> Vec3 {
     // Convert declination to decimal degrees
 	let text_ra = star_data.ra;
@@ -290,15 +284,7 @@ fn celestial_to_cartesian(rah: f64, ded: f64) -> Vec3 {
 }
 
 fn cons_setup(mut sky: ResMut<Sky>) {
-	sky.content = get_cons().unwrap();
-}
-
-fn get_cons() -> std::io::Result<Vec<Constellation>> {
-	let data = include_str!("../data/constellations.json");
-
-    let sky_data: Vec<Constellation> = serde_json::from_str(&data).unwrap();
-
-    Ok(sky_data)
+	sky.content = serde_json::from_str(include_str!("../data/constellations.json")).expect("no constellation json provided");
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
