@@ -21,7 +21,8 @@ const MAX_STAR_SIZE: f32 = 0.63;
 const STAR_SCALE: f32 = 0.02;
 const SKY_RADIUS: f32 = 4.0;
 const CONS_VIEW_RADIUS: f32 = 0.8;
-const MOUSE_SPEED: f32 = 12.0;
+const MOVE_SPEED: f32 = 12.0;
+const ROT_SPEED: f32 = 9.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct StarData {
@@ -113,7 +114,8 @@ struct GameOver;
 #[derive(Component, Default)]
 struct Player {
 	target_rotation: Option<Quat>,
-	dragging_pos: Option<Vec2>,
+	r_drag_pos: Option<Vec2>,
+	l_drag_pos: Option<Vec2>,
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -140,6 +142,7 @@ fn main() {
         .add_systems(OnEnter(GameState::Game), game_state::setup)
         .add_systems(Update, game_state::player_interact.run_if(in_state(GameState::Game)))
         .add_systems(Update, explo_state::player_mouse_move.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
+        .add_systems(Update, explo_state::player_mouse_rotate.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo))))
 		.add_systems(Update, explo_state::rotate_camera.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
 		.add_systems(Update, explo_state::zoom.run_if(in_state(GameState::Game).or_else(in_state(GameState::Explo)))) 
 		.add_systems(Update, game_state::ui_buttons.run_if(in_state(GameState::Game)))

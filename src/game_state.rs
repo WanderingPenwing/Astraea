@@ -215,7 +215,7 @@ pub fn player_interact(
 		return
     };
 
-    if player.dragging_pos.is_some() {
+    if player.l_drag_pos.is_some() || player.r_drag_pos.is_some() {
     	game_data.target_cons_focused = false;
     }
   

@@ -13,7 +13,8 @@ use crate::MainGame;
 use crate::spawn_cons_lines;
 
 use crate::CONS_VIEW_RADIUS;
-use crate::MOUSE_SPEED;
+use crate::MOVE_SPEED;
+use crate::ROT_SPEED;
 
 #[derive(Component)]
 pub struct InfoLabel;
@@ -75,7 +76,7 @@ pub fn player_mouse_move (
 	let local_transform = &global_transform.compute_transform();
 
 	if !buttons.pressed(MouseButton::Left) {
-	    player.dragging_pos = None;
+	    player.l_drag_pos = None;
 	    return;
 	}
 
@@ -85,8 +86,8 @@ pub fn player_mouse_move (
 	    return;
 	};
 
-	let Some(old_cursor) = player.dragging_pos else {
-	    player.dragging_pos = Some(new_cursor);
+	let Some(old_cursor) = player.l_drag_pos else {
+	    player.l_drag_pos = Some(new_cursor);
 	    return;
 	};
 
@@ -105,7 +106,69 @@ pub fn player_mouse_move (
 	let delta_rotation = rotate_to_align(new_ray, old_ray); 
 
 	player.target_rotation = Some(delta_rotation * local_transform.rotation );
-	player.dragging_pos = Some(new_cursor);
+	player.l_drag_pos = Some(new_cursor);
+}
+
+pub fn player_mouse_rotate (
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut player_query: Query<(&mut Player, &mut GlobalTransform)>,
+    window_query: Query<&Window, With<bevy::window::PrimaryWindow>>,
+    ui_query: Query<&Interaction, With<Button>>,
+) {
+    for interaction in ui_query.iter() {
+        if *interaction == Interaction::Pressed {
+        	// Button clicked
+            return;
+        }
+    }
+    
+	let Ok((mut player, global_transform)) = player_query.get_single_mut() else {
+	    return;
+	};
+	let local_transform = &global_transform.compute_transform();
+
+	if !buttons.pressed(MouseButton::Right) {
+	    player.r_drag_pos = None;
+	    return;
+	}
+
+	let window = window_query.single();
+
+	let Some(new_cursor) = window.cursor_position() else {
+	    return;
+	};
+
+	let Some(old_cursor) = player.r_drag_pos else {
+	    player.r_drag_pos = Some(new_cursor);
+	    return;
+	};
+
+	if old_cursor.distance(new_cursor) < 1.0 {
+	    return;
+	}
+
+	let center = Vec2::new(window.width()/2.0, window.height()/2.0);
+
+	let old_vec = old_cursor - center;
+	let new_vec = new_cursor - center;
+
+	if new_vec.length() < f32::EPSILON || old_vec.length() < f32::EPSILON {
+    	player.r_drag_pos = Some(new_cursor);
+   	    return;
+   	}
+	
+    let angle = (old_vec.dot(new_vec) / (old_vec.length() * new_vec.length())).acos() * ROT_SPEED;
+
+    let signed_angle = if old_vec.perp_dot(new_vec) < 0.0 {
+    	angle
+    } else {
+    	-angle
+    };
+
+	let delta_rotation = Quat::from_axis_angle(local_transform.forward().into(), signed_angle);
+	
+	player.target_rotation = Some(delta_rotation * local_transform.rotation);
+	player.r_drag_pos = Some(new_cursor);
 }
 
 pub fn zoom(
@@ -149,7 +212,7 @@ fn rotate_to_align(ray_1: Ray3d, ray_2: Ray3d) -> Quat {
     }
 
     let dot_product = dir_1.dot(dir_2).clamp(-1.0, 1.0);
-    let angle_of_rotation = dot_product.acos() * MOUSE_SPEED;
+    let angle_of_rotation = dot_product.acos() * MOVE_SPEED;
 
     if angle_of_rotation.is_nan() || angle_of_rotation.is_infinite() {
         return Quat::IDENTITY;
