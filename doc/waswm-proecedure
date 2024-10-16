@@ -1,0 +1,11 @@
+nix develop
+cargo build --release --target wasm32-unknown-unknown
+exit
+----
+nix-shell -p wasm-bindgen-cli --argstr nixpkgs https://nixos.org/channels/nixpkgs-unstable
+wasm-bindgen target/wasm32-unknown-unknown/release/astraea.wasm --out-dir ./out --target web
+exit
+-----
+cd out/
+nix-shell -p python3
+python3 -m http.server
